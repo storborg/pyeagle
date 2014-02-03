@@ -65,7 +65,7 @@ class DeviceSet(object):
     """
     Represents a device set (in a library).
     """
-    def __init__(self, name, prefix, gates=None, uservalue=False,
+    def __init__(self, name, prefix=None, gates=None, uservalue=False,
                  description=u''):
         self.name = name
         self.prefix = prefix
@@ -79,11 +79,14 @@ class DeviceSet(object):
     @classmethod
     def from_xml(cls, ds_root):
         name = ds_root.attrib['name']
-        prefix = ds_root.attrib['prefix']
-        uservalue = ds_root.attrib['uservalue'] == 'yes'
+        prefix = ds_root.attrib.get('prefix')
+        uservalue = ds_root.attrib.get('uservalue') == 'yes'
 
-        desc_node = ds_root.xpath('description')
-        description = desc_node.text
+        desc_nodes = ds_root.xpath('description')
+        if desc_nodes:
+            description = desc_nodes[0].text
+        else:
+            description = u''
 
         gates = []
         for gate_node in ds_root.xpath('gates/gate'):
@@ -111,12 +114,12 @@ class Library(object):
     Represents an EAGLE parts library.
     """
     def __init__(self, description=u'',
-                 packages=None, symbols=None, devices=None,
+                 packages=None, symbols=None, device_sets=None,
                  from_file=None):
         self.description = description
         self.packages = packages or []
         self.symbols = symbols or []
-        self.devices = devices or []
+        self.device_sets = device_sets or []
         self.from_file = from_file
 
     def __repr__(self):
@@ -139,12 +142,12 @@ class Library(object):
         for symbol_node in lib_root.xpath('symbols/symbol'):
             symbols.append(Symbol.from_xml(symbol_node))
 
-        devices = []
-        for device_node in lib_root.xpath('devices/device'):
-            devices.append(Device.from_xml(device_node))
+        device_sets = []
+        for ds_node in lib_root.xpath('devicesets/deviceset'):
+            device_sets.append(DeviceSet.from_xml(ds_node))
 
         return cls(description=description, packages=packages, symbols=symbols,
-                   devices=devices, from_file=from_file)
+                   device_sets=device_sets, from_file=from_file)
 
     def __iter__(self):
-        return iter(self.devices)
+        return iter(self.device_sets)

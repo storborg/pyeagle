@@ -23,5 +23,5 @@ Example Usage
     schematic = pyeagle.open('hello.sch')
 
     lib = pyeagle.open('SparkFun-Sensors.lbr')
-    for device in lib:
-        print device
+    for part in lib:
+        print part

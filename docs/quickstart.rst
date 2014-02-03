@@ -21,8 +21,8 @@ Open a library file, print some info about the contents.
 
     lib = pyeagle.open('SparkFun-Sensors.lbr')
 
-    for device in lib:  # could also use lib.devices
-        print device
+    for device_set in lib:  # could also use lib.device_sets
+        print device_set
 
     for symbol in lib.symbols:
         print symbol
