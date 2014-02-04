@@ -18,8 +18,10 @@ def open(f):
     tree = etree.parse(f)
     root = tree.getroot()
 
-    lib_roots = root.xpath('drawing/library')
-    if len(lib_roots) == 1:
-        return types.Library.from_xml(lib_roots[0], from_file=f)
-    else:
-        raise NotImplementedError
+    for tag, cls in [('library', types.Library),
+                     ('schematic', types.Schematic),
+                     ('board', types.Board)]:
+        nodes = root.xpath('drawing/' + tag)
+        if len(nodes) == 1:
+            return cls.from_xml(nodes[0], from_file=f)
+    raise NotImplementedError

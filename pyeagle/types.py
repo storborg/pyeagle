@@ -151,3 +151,79 @@ class Library(object):
 
     def __iter__(self):
         return iter(self.device_sets)
+
+
+class Part(object):
+    """
+    A part in a schematic sheet.
+    """
+
+
+class Sheet(Geometry):
+    """
+    A sheet in a schematic.
+    """
+    def __init__(self):
+        self.instances = []
+        self.nets = []
+        self.busses = []
+
+
+class Schematic(object):
+    """
+    Represents an EAGLE schematic.
+    """
+    def __init__(self):
+        self.classes = []
+        self.libraries = []
+        self.parts = []
+        self.sheets = []
+
+    @classmethod
+    def from_xml(cls, node, from_file=None):
+        return cls()
+
+
+class AutorouterRules(object):
+    pass
+
+
+class DesignRules(object):
+    """
+    A set of PCB design rules.
+    """
+    def __init__(self, descriptions=None, params=None):
+        self.descriptions = descriptions or {}
+        self.params = params or {}
+
+    @classmethod
+    def from_xml(cls, node):
+        descriptions = {}
+        for desc_node in node.xpath('description'):
+            lang = desc_node.attrib['language']
+            descriptions[lang] = desc_node.text
+
+        params = {}
+        for param_node in node.xpath('param'):
+            params[param_node.attrib['name']] = param_node.attrib['value']
+
+        return cls(descriptions=descriptions,
+                   params=params)
+
+
+class Signal(Geometry):
+    """
+    A signal in a board.
+    """
+
+
+class Board(Geometry):
+    """
+    An EAGLE printed circuit board layout.
+    """
+    def __init__(self):
+        self.elements = []
+
+    @classmethod
+    def from_xml(cls, node, from_file=None):
+        return cls()

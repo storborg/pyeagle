@@ -120,6 +120,7 @@ class Text(object):
                 (self.x, self.y))
 
     def to_svg(self, offset, scale):
+        # FIXME Implement this
         return []
 
 
@@ -194,6 +195,7 @@ class Pad(object):
                  self.y + margin))
 
     def to_svg(self, offset, scale):
+        # FIXME Implement this
         return []
 
 
@@ -229,6 +231,7 @@ class Pin(object):
                 (self.x, self.y))
 
     def to_svg(self, offset, scale):
+        # FIXME Implement this
         return []
 
 
@@ -260,6 +263,7 @@ class Polygon(object):
                  max(y for x, y in self.vertices) + margin))
 
     def to_svg(self, offset, scale):
+        # FIXME Implement this
         return []
 
 
