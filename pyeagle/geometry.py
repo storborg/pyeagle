@@ -4,7 +4,29 @@ from lxml.etree import tostring
 from lxml.builder import E
 
 
-class Wire(object):
+class Primitive(object):
+
+    def to_svg(self, scale):
+        """
+        Render this piece of geometry or set of pieces to an SVG object, and
+        return it as a string.
+        """
+        (startx, starty), (endx, endy) = self.bounding_box()
+        width = math.ceil((endx - startx) * scale)
+        height = math.ceil((endy - starty) * scale)
+
+        offset = (-startx, -starty)
+
+        children = self.to_svg_fragments(offset, scale)
+
+        root = E.svg(
+            *children,
+            width=str(width),
+            height=str(height))
+        return tostring(root)
+
+
+class Wire(Primitive):
     def __init__(self, start, end, width, layer, curve=None, cap=None):
         self.x1, self.y1 = start
         self.x2, self.y2 = end
@@ -20,6 +42,9 @@ class Wire(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Wire from an EAGLE XML ``wire`` node.
+        """
         curve = node.attrib.get('curve')
         curve = curve and float(curve)
         return cls(start=(float(node.attrib['x1']),
@@ -41,7 +66,7 @@ class Wire(object):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
                 (max(self.x1, self.x2), max(self.y1, self.y2)))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         offx, offy = offset
 
         color = 'rgb(80, 80, 80)'
@@ -56,7 +81,7 @@ class Wire(object):
         )]
 
 
-class SMD(object):
+class SMD(Primitive):
     def __init__(self, name, pos, size, layer):
         self.name = name
         self.x, self.y = pos
@@ -70,6 +95,9 @@ class SMD(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct an SMD from an EAGLE XML ``smd`` node.
+        """
         return cls(name=node.attrib['name'],
                    pos=(float(node.attrib['x']),
                         float(node.attrib['y'])),
@@ -87,7 +115,7 @@ class SMD(object):
         return ((self.x - (self.dx / 2.0), self.y - (self.dy / 2.0)),
                 (self.x + (self.dx / 2.0), self.y + (self.dy / 2.0)))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         offsetx, offsety = offset
 
         color = 'rgb(180, 0, 0)'
@@ -102,7 +130,7 @@ class SMD(object):
         )]
 
 
-class Text(object):
+class Text(Primitive):
     def __init__(self, s, pos, size, layer, ratio=None):
         self.s = s
         self.x, self.y = pos
@@ -117,6 +145,9 @@ class Text(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Text instance from an EAGLE XML ``<text>`` node.
+        """
         ratio = node.attrib.get('ratio')
         ratio = ratio and float(ratio)
         return cls(s=node.text,
@@ -137,12 +168,12 @@ class Text(object):
         return ((self.x, self.y),
                 (self.x, self.y))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         # FIXME Implement this
         return []
 
 
-class Rectangle(object):
+class Rectangle(Primitive):
     def __init__(self, start, end, layer):
         self.x1, self.y1 = start
         self.x2, self.y2 = end
@@ -155,6 +186,9 @@ class Rectangle(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Rectangle from an EAGLE XML ``<rectangle>`` node.
+        """
         return cls(start=(float(node.attrib['x1']),
                           float(node.attrib['y1'])),
                    end=(float(node.attrib['x2']),
@@ -171,7 +205,7 @@ class Rectangle(object):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
                 (max(self.x1, self.x2), max(self.y1, self.y2)))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         offsetx, offsety = offset
 
         color = 'rgb(180, 0, 0)'
@@ -191,7 +225,7 @@ class Rectangle(object):
         )]
 
 
-class Pad(object):
+class Pad(Primitive):
     def __init__(self, name, pos, drill, diameter):
         self.name = name
         self.x, self.y = pos
@@ -224,12 +258,12 @@ class Pad(object):
                 (self.x + margin,
                  self.y + margin))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         # FIXME Implement this
         return []
 
 
-class Pin(object):
+class Pin(Primitive):
     def __init__(self, name, pos, length, direction, rotate, visible=False):
         self.name = name
         self.x, self.y = pos
@@ -266,12 +300,12 @@ class Pin(object):
         return ((self.x, self.y),
                 (self.x, self.y))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         # FIXME Implement this
         return []
 
 
-class Polygon(object):
+class Polygon(Primitive):
     def __init__(self, width, layer, vertices=None):
         self.width = width
         self.layer = layer
@@ -304,12 +338,12 @@ class Polygon(object):
                 (max(x for x, y in self.vertices) + margin,
                  max(y for x, y in self.vertices) + margin))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         # FIXME Implement this
         return []
 
 
-class Hole(object):
+class Hole(Primitive):
     def __init__(self, pos, drill):
         self.x, self.y = pos
         self.drill = drill
@@ -337,7 +371,7 @@ class Hole(object):
                 (self.x + margin,
                  self.y + margin))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         offsetx, offsety = offset
         color = 'rgb(20, 20, 20)'
         style = 'fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' % (color, 1)
@@ -350,7 +384,7 @@ class Hole(object):
         )]
 
 
-class Circle(object):
+class Circle(Primitive):
     def __init__(self, pos, radius, width, layer):
         self.x, self.y = pos
         self.radius = radius
@@ -381,7 +415,7 @@ class Circle(object):
         return ((self.x - margin, self.y - margin),
                 (self.x + margin, self.y + margin))
 
-    def to_svg(self, offset, scale):
+    def to_svg_fragments(self, offset, scale):
         offsetx, offsety = offset
         color = 'rgb(20, 20, 20)'
         style = 'fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' % (color, 1)
@@ -394,7 +428,7 @@ class Circle(object):
         )]
 
 
-class Geometry(object):
+class Geometry(Primitive):
     def __init__(self, primitives=None):
         self.primitives = primitives or []
 
@@ -423,19 +457,16 @@ class Geometry(object):
             endy = max(endy, y2)
         return (startx, starty), (endx, endy)
 
-    def to_svg(self, scale):
-        (startx, starty), (endx, endy) = self.bounding_box()
-        width = math.ceil((endx - startx) * scale)
-        height = math.ceil((endy - starty) * scale)
+    def to_svg_fragments(self, offset, scale):
+        """
+        Render this set of geometry to a list of SVG nodes.
 
-        offset = (-startx, -starty)
-
+        :param scale:
+            Scaling factor
+        :type scale:
+            int
+        """
         children = []
         for primitive in self.primitives:
-            children.extend(primitive.to_svg(offset, scale))
-
-        root = E.svg(
-            *children,
-            width=str(width),
-            height=str(height))
-        return tostring(root)
+            children.extend(primitive.to_svg_fragments(offset, scale))
+        return children

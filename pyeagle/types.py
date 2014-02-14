@@ -211,6 +211,9 @@ class Library(object):
 
     @classmethod
     def from_xml(cls, lib_root, from_file=None):
+        """
+        Construct a Library from a ``<library>`` node in EAGLE's XML format.
+        """
         name = lib_root.attrib.get('name')
 
         # FIXME this xpath selector may have an issue, it should really only
@@ -271,6 +274,9 @@ class Part(object):
 
     @classmethod
     def from_xml(cls, node, libraries):
+        """
+        Construct a Part from a ``<part>`` node in EAGLE's XML format.
+        """
         name = node.attrib['name']
         value = node.attrib.get('value')
 
@@ -291,18 +297,73 @@ class Part(object):
         raise NotImplementedError
 
 
-class Sheet(Geometry):
+class Instance(object):
     """
-    A sheet in a schematic.
+    A gate instance of a part in a schematic sheet.
     """
-    def __init__(self):
-        self.instances = []
-        self.nets = []
-        self.busses = []
+    def __init__(self, part, gate, pos, smashed=False, rot=0):
+        self.part = part
+        self.gate = gate
+        self.x, self.y = pos
+        self.smashed = smashed
+        self.rot = rot
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct an Instance from a ``<instance>`` node in EAGLE's XML format.
+        """
+        pass
+
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
+
+class Sheet(Geometry):
+    """
+    A sheet in a schematic.
+
+    A sheet has:
+        - plain elements (drawing primitives)
+        - instances
+        - busses
+        - nets
+    """
+    def __init__(self, primitives=None, instances=None, nets=None,
+                 busses=None):
+        Geometry.__init__(self, primitives)
+        self.instances = instances or OrderedDict()
+        self.nets = nets or OrderedDict()
+        self.busses = busses or OrderedDict()
+
+    @classmethod
+    def from_xml(cls, node):
+        """
+        Construct a Sheet from a ``<sheet>`` node in EAGLE's XML format.
+        """
+        instances = OrderedDict()
+        for instance_node in node.xpath('instances/instance'):
+            pass
+
+        nets = OrderedDict()
+        for net_node in node.xpath('nets/net'):
+            net = Net.from_xml(net_node)
+            nets[net.name] = net
+
+        busses = OrderedDict()
+        for bus_node in node.xpath('busses/bus'):
+            bus = Bus.from_xml(bus_node)
+            busses[bus.name] = bus
+
+        primitives = cls.geometry_from_xml(node)
         return cls(
+            primitives=primitives,
+            instances=instances,
+            busses=busses,
+            nets=nets,
         )
 
     def to_xml(self):
@@ -322,14 +383,18 @@ class Schematic(object):
     """
     Represents an EAGLE schematic.
     """
-    def __init__(self, libraries=None, parts=None):
+    def __init__(self, sheets=None, libraries=None, parts=None):
         self.classes = []
         self.libraries = libraries or OrderedDict()
         self.parts = parts or OrderedDict()
-        self.sheets = []
+        self.sheets = sheets or []
 
     @classmethod
     def from_xml(cls, node, from_file=None):
+        """
+        Construct a Schematic from a ``<schematic>`` node in EAGLE's XML
+        format.
+        """
         libraries = OrderedDict()
         for lib_node in node.xpath('libraries/library'):
             lib = Library.from_xml(lib_node)
@@ -340,9 +405,14 @@ class Schematic(object):
             part = Part.from_xml(part_node, libraries)
             parts[part.name] = part
 
+        sheets = []
+        for sheet_node in node.xpath('sheets/sheet'):
+            sheets.append(Sheet.from_xml(sheet_node))
+
         return cls(
             libraries=libraries,
             parts=parts,
+            sheets=sheets,
         )
 
     def to_xml(self):
@@ -361,30 +431,10 @@ class Schematic(object):
         raise NotImplementedError
 
 
-class AutorouterPass(object):
-    """
-    A single autorouter pass.
-    """
-    def __init__(self, params=None):
-        self.params = params or {}
-
-    @classmethod
-    def from_xml(cls, node):
-        params = {}
-        for param_node in node.xpath('param'):
-            params[param_node.attrib['name']] = param_node.attrib['value']
-        return cls(params=params)
-
-    def to_xml(self):
-        """
-        Serialize this primitive element to a fragment in EAGLE's XML format.
-        """
-        raise NotImplementedError
-
-
 class AutorouterRules(object):
     """
-    A set of autorouter control parameters.
+    A set of autorouter control parameters. Has a list of passes, each of whih
+    is a dict of parameters.
     """
     def __init__(self, passes=None):
         self.passes = passes or []
@@ -393,7 +443,10 @@ class AutorouterRules(object):
     def from_xml(cls, node):
         passes = []
         for pass_node in node.xpath('pass'):
-            passes.append(AutorouterPass.from_xml(pass_node))
+            params = {}
+            for param_node in pass_node.xpath('param'):
+                params[param_node.attrib['name']] = param_node.attrib['value']
+            passes.append(params)
         return cls(passes=passes)
 
     def to_xml(self):
@@ -469,11 +522,36 @@ class Bus(Geometry):
         raise NotImplementedError
 
 
-class Net(Geometry):
+class Segment(Geometry):
+    """
+    A segment in a net.
+    """
+    def __init__(self, pins=None, junctions=None, primitives=None):
+        Geometry.__init__(self, primitives=primitives)
+        self.pins = pins or []
+        self.junctions = junctions or []
+
+    @classmethod
+    def from_xml(cls, node):
+        primitives = cls.geometry_from_xml(node)
+
+        pins = []
+        for pin_node in node.xpath('pinref'):
+            pass
+
+        junctions = []
+        for junction_node in node.xpath('junction'):
+            junctions.append((junction_node.attrib['x'],
+                              junction_node.attrib['y']))
+
+        return cls(primitives=primitives,
+                   pins=pins,
+                   junctions=junctions)
+
+
+class Net(object):
     """
     A net in a schematic. The same thing in a board is a called a Signal.
-
-    FIXME Maybe a segment should be a class which inherits from Geometry.
     """
     def __init__(self, name, class_, segments=None):
         self.name = name
@@ -482,7 +560,17 @@ class Net(Geometry):
 
     @classmethod
     def from_xml(cls, node):
-        return cls()
+        name = node.attrib['name']
+        class_ = node.attrib['class']
+
+        segments = []
+        for segment_node in node.xpath('segment'):
+            segment = Segment.from_xml(segment_node)
+            segments.append(segment)
+
+        return cls(name=name,
+                   class_=class_,
+                   segments=segments)
 
     def to_xml(self):
         raise NotImplementedError

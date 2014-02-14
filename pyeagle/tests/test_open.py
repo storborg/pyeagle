@@ -52,6 +52,15 @@ class TestOpenSchematic(TestCase):
         libraries = self.schematic.libraries
         self.assertEqual(len(libraries), 18)
 
+    def test_sheets(self):
+        sheets = self.schematic.sheets
+        self.assertEqual(len(sheets), 1)
+
+    def test_sheet_nets(self):
+        sheet = self.schematic.sheets[0]
+        nets = sheet.nets
+        self.assertEqual(len(nets), 107)
+
 
 class TestOpenBoard(TestCase):
     @classmethod
