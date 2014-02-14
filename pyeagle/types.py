@@ -1,8 +1,9 @@
 """
 PyEAGLE types: different objects represented in CAD files.
 """
+from collections import OrderedDict
 
-from .geometry import Geometry
+from .geometry import Geometry, Pin, Pad, SMD
 
 
 class Package(Geometry):
@@ -15,6 +16,11 @@ class Package(Geometry):
 
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.name)
+
+    @property
+    def pads(self):
+        return [prim for prim in self.primitives
+                if isinstance(prim, (Pad, SMD))]
 
     @classmethod
     def from_xml(cls, package_root):
@@ -33,6 +39,11 @@ class Symbol(Geometry):
 
     def __repr__(self):
         return '<%s %r>' % (self.__class__.__name__, self.name)
+
+    @property
+    def pins(self):
+        return [prim for prim in self.primitives
+                if isinstance(prim, Pin)]
 
     @classmethod
     def from_xml(cls, symbol_root):
@@ -113,13 +124,14 @@ class Library(object):
     """
     Represents an EAGLE parts library.
     """
-    def __init__(self, description=u'',
+    def __init__(self, name=None, description=None,
                  packages=None, symbols=None, device_sets=None,
                  from_file=None):
+        self.name = name
         self.description = description
-        self.packages = packages or []
-        self.symbols = symbols or []
-        self.device_sets = device_sets or []
+        self.packages = packages or OrderedDict()
+        self.symbols = symbols or OrderedDict()
+        self.device_sets = device_sets or OrderedDict()
         self.from_file = from_file
 
     def __repr__(self):
@@ -128,25 +140,34 @@ class Library(object):
 
     @classmethod
     def from_xml(cls, lib_root, from_file=None):
+        name = lib_root.attrib.get('name')
+
         # FIXME this xpath selector may have an issue, it should really only
         # select from a description tag which is an immediate child of the root
         # node.
-        desc_node = lib_root.xpath('description')[0]
-        description = desc_node.text
+        desc_nodes = lib_root.xpath('description')
+        if desc_nodes:
+            description = desc_nodes[0].text
+        else:
+            description = None
 
-        packages = []
+        packages = OrderedDict()
         for package_node in lib_root.xpath('packages/package'):
-            packages.append(Package.from_xml(package_node))
+            package = Package.from_xml(package_node)
+            packages[package.name] = package
 
-        symbols = []
+        symbols = OrderedDict()
         for symbol_node in lib_root.xpath('symbols/symbol'):
-            symbols.append(Symbol.from_xml(symbol_node))
+            symbol = Symbol.from_xml(symbol_node)
+            symbols[symbol.name] = symbol
 
-        device_sets = []
+        device_sets = OrderedDict()
         for ds_node in lib_root.xpath('devicesets/deviceset'):
-            device_sets.append(DeviceSet.from_xml(ds_node))
+            device_set = DeviceSet.from_xml(ds_node)
+            device_sets[device_set.name] = device_set
 
-        return cls(description=description, packages=packages, symbols=symbols,
+        return cls(name=name,
+                   description=description, packages=packages, symbols=symbols,
                    device_sets=device_sets, from_file=from_file)
 
     def __iter__(self):
@@ -173,15 +194,22 @@ class Schematic(object):
     """
     Represents an EAGLE schematic.
     """
-    def __init__(self):
+    def __init__(self, libraries=None):
         self.classes = []
-        self.libraries = []
-        self.parts = []
+        self.libraries = libraries or OrderedDict()
+        self.parts = OrderedDict()
         self.sheets = []
 
     @classmethod
     def from_xml(cls, node, from_file=None):
-        return cls()
+        libraries = OrderedDict()
+        for lib_node in node.xpath('libraries/library'):
+            lib = Library.from_xml(lib_node)
+            libraries[lib.name] = lib
+
+        return cls(
+            libraries=libraries,
+        )
 
 
 class AutorouterRules(object):
@@ -221,9 +249,16 @@ class Board(Geometry):
     """
     An EAGLE printed circuit board layout.
     """
-    def __init__(self):
-        self.elements = []
+    def __init__(self, libraries=None):
+        self.libraries = libraries or OrderedDict()
 
     @classmethod
     def from_xml(cls, node, from_file=None):
-        return cls()
+        libraries = OrderedDict()
+        for lib_node in node.xpath('libraries/library'):
+            lib = Library.from_xml(lib_node)
+            libraries[lib.name] = lib
+
+        return cls(
+            libraries=libraries,
+        )
