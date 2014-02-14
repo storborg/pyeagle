@@ -18,6 +18,7 @@ def open(f):
     tree = etree.parse(f)
     root = tree.getroot()
 
+    # FIXME Add file identification for design rules and autorouter rules.
     for tag, cls in [('library', types.Library),
                      ('schematic', types.Schematic),
                      ('board', types.Board)]:

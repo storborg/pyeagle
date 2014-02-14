@@ -31,6 +31,12 @@ class Wire(object):
                    curve=curve,
                    cap=node.attrib.get('cap'))
 
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
     def bounding_box(self):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
                 (max(self.x1, self.x2), max(self.y1, self.y2)))
@@ -70,6 +76,12 @@ class SMD(object):
                    size=(float(node.attrib['dx']),
                          float(node.attrib['dy'])),
                    layer=int(node.attrib['layer']))
+
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
 
     def bounding_box(self):
         return ((self.x - (self.dx / 2.0), self.y - (self.dy / 2.0)),
@@ -114,6 +126,12 @@ class Text(object):
                    layer=int(node.attrib['layer']),
                    ratio=ratio)
 
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
     def bounding_box(self):
         # FIXME Can we actually calculate this? May need to render text.
         return ((self.x, self.y),
@@ -142,6 +160,12 @@ class Rectangle(object):
                    end=(float(node.attrib['x2']),
                         float(node.attrib['y2'])),
                    layer=int(node.attrib['layer']))
+
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
 
     def bounding_box(self):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
@@ -187,6 +211,12 @@ class Pad(object):
                    drill=float(node.attrib['drill']),
                    diameter=float(node.attrib.get('diameter', 0)))
 
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
     def bounding_box(self):
         margin = self.diameter / 2.0
         return ((self.x - margin,
@@ -225,6 +255,12 @@ class Pin(object):
                    rotate=rotate,
                    visible=visible)
 
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
     def bounding_box(self):
         # FIXME Need to render things
         return ((self.x, self.y),
@@ -255,6 +291,12 @@ class Polygon(object):
                    layer=int(node.attrib['layer']),
                    vertices=vertices)
 
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
+
     def bounding_box(self):
         margin = self.width / 2.0
         return ((min(x for x, y in self.vertices) - margin,
@@ -281,6 +323,12 @@ class Hole(object):
         return cls(pos=(float(node.attrib['x']),
                         float(node.attrib['y'])),
                    drill=float(node.attrib['drill']))
+
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
 
     def bounding_box(self):
         margin = self.drill / 2.0
@@ -321,6 +369,12 @@ class Circle(object):
                    radius=float(node.attrib['radius']),
                    width=float(node.attrib['width']),
                    layer=int(node.attrib['layer']))
+
+    def to_xml(self):
+        """
+        Serialize this primitive element to a fragment in EAGLE's XML format.
+        """
+        raise NotImplementedError
 
     def bounding_box(self):
         margin = self.radius + (self.width / 2.0)

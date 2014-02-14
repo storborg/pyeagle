@@ -60,8 +60,8 @@ class TestOpenBoard(TestCase):
 
     def test_libraries(self):
         libraries = self.board.libraries
-        # Note the board has one less library because the supply lib is used in
-        # the schematic but not the board.
+        # Note the board has one less library because the 'supply' lib is used
+        # in the schematic but not the board.
         self.assertEqual(len(libraries), 17)
 
 
