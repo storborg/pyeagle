@@ -9,6 +9,9 @@ VIAS_LAYER = 18
 HOLES_LAYER = 45
 DRILLS_LAYER = 44
 
+TOP_LAYER = 1
+BOTTOM_LAYER = 16
+
 # Schematic layers
 SYMBOLS_LAYER = 94
 PINS_LAYER = 93
@@ -16,23 +19,41 @@ PINS_LAYER = 93
 
 class Primitive(object):
 
-    def to_svg(self, scale, layers):
+    def to_svg(self, scale, layers, margin=30, add_bounding_box=True):
         """
         Render this piece of geometry or set of pieces to an SVG object, and
         return it as a string.
         """
         (startx, starty), (endx, endy) = self.bounding_box()
+
         width = math.ceil((endx - startx) * scale)
         height = math.ceil((endy - starty) * scale)
+        print
+        print "%r -> (%f, %f)" % (repr(self), width, height)
 
-        offset = (-startx, -starty)
+        offset_margin = float(margin) / scale
+
+        offset = (-startx + offset_margin, -starty + offset_margin)
+        print "offset %f, %f" % offset
 
         children = self.to_svg_fragments(offset, scale, layers)
 
+        if add_bounding_box:
+            style = 'stroke-width:1; stroke:red; fill:rgba(0, 0, 0, 0);'
+            children.insert(0,
+                E.rect(
+                    x=str(margin),
+                    y=str(margin),
+                    width=str(width),
+                    height=str(height),
+                    style=style,
+                )
+            )
+
         root = E.svg(
             *children,
-            width=str(width),
-            height=str(height))
+            width=str(width + (2 * margin)),
+            height=str(height + (2 * margin)))
         return tostring(root)
 
 
@@ -184,13 +205,15 @@ class Text(Primitive):
     def bounding_box(self):
         # FIXME Can we actually calculate this? May need to render text.
         w, h = self.calculate_size(scale=1)
-        return ((self.x, self.y),
-                (self.x + w, self.y + h))
+        baseline = 0.25  # Consolas
+        offset = baseline * self.size
+        return ((self.x, self.y - h + offset),
+                (self.x + w, self.y + offset))
 
     def calculate_size(self, scale):
-        aspect_ratio = 0.49  # Consolas
+        aspect_ratio = 0.55  # Consolas
         h = self.size * scale
-        w = h * aspect_ratio
+        w = h * aspect_ratio * len(self.s)
         return w, h
 
     def to_svg_fragments(self, offset, scale, layers):
@@ -199,8 +222,9 @@ class Text(Primitive):
         color = layers.get_css_color(self.layer)
         if color:
             # Initial super naive approach assumes one size and no ratio
-            style = ('fill:%s; font-size:%d; font-family:Consolas;' %
+            style = ('fill:%s; font-size:%f; font-family:Consolas;' %
                      (color, self.size * scale))
+
             return [
                 E.text(
                     self.s,
@@ -311,7 +335,7 @@ class Pad(Primitive):
 
         color = layers.get_css_color(PADS_LAYER)
         if color:
-            style = 'fill:%s;;stroke-width:%d' % (color, 0)
+            style = 'fill:%s;stroke-width:%d' % (color, 0)
 
             return [E.circle(
                 r=str((self.diameter / 2.0) * scale),
@@ -433,9 +457,12 @@ class Polygon(Primitive):
         color = layers.get_css_color(self.layer)
         if color:
             # FIXME Handle stroke and fill correctly.
-            style = 'fill:%s;stroke:%s;stroke-width:%d' % (color, color, 1)
-            points = ' '.join('%d,%d' % (x, y) for x, y in self.vertices)
-            return E.polygon(points=points, style=style)
+            style = 'fill:%s;stroke:%s;stroke-width:%d' % (color, color,
+                                                           self.width * scale)
+            points = ' '.join('%d,%d' % ((x + offsetx) * scale,
+                                         (y + offsety) * scale)
+                              for x, y in self.vertices)
+            return [E.polygon(points=points, style=style)]
         else:
             return []
 
