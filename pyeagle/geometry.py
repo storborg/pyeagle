@@ -19,7 +19,21 @@ PINS_LAYER = 93
 
 class Primitive(object):
 
-    def to_svg(self, scale, layers, margin=30, add_bounding_box=True):
+    def to_svg_bounding_box(self, scale, margin):
+        (startx, starty), (endx, endy) = self.bounding_box()
+        width = math.ceil((endx - startx) * scale)
+        height = math.ceil((endy - starty) * scale)
+
+        style = 'stroke-width:1; stroke:red; fill:rgba(255, 0, 0, 0.1);'
+        return E.rect(
+            x=str(margin),
+            y=str(margin),
+            width=str(width),
+            height=str(height),
+            style=style,
+        )
+
+    def to_svg(self, scale, layers, margin=10, add_bounding_box=False):
         """
         Render this piece of geometry or set of pieces to an SVG object, and
         return it as a string.
@@ -28,27 +42,15 @@ class Primitive(object):
 
         width = math.ceil((endx - startx) * scale)
         height = math.ceil((endy - starty) * scale)
-        print
-        print "%r -> (%f, %f)" % (repr(self), width, height)
 
         offset_margin = float(margin) / scale
 
         offset = (-startx + offset_margin, -starty + offset_margin)
-        print "offset %f, %f" % offset
 
         children = self.to_svg_fragments(offset, scale, layers)
 
         if add_bounding_box:
-            style = 'stroke-width:1; stroke:red; fill:rgba(0, 0, 0, 0);'
-            children.insert(0,
-                E.rect(
-                    x=str(margin),
-                    y=str(margin),
-                    width=str(width),
-                    height=str(height),
-                    style=style,
-                )
-            )
+            children.insert(0, self.to_svg_bounding_box(scale, margin))
 
         root = E.svg(
             *children,
@@ -350,13 +352,20 @@ class Pad(Primitive):
 
 
 class Pin(Primitive):
+    pin_origin_radius = 0.508
+
     def __init__(self, name, pos, length, direction, function, rotate,
                  visible=False):
         self.name = name
         self.x, self.y = pos
         self.visible = visible
 
-        # The length of the pin, in words: point, short, middle, long
+        # The length of the pin:
+        #   - point: pin has no length
+        #   - short: pin is 0.1" long
+        #   - middle: pin is 0.2" long
+        #   - logn: pin is 0.3" long
+
         self.length = length
 
         # The 'direction' of the pin. Doesn't affect rendering, just electrical
@@ -374,12 +383,21 @@ class Pin(Primitive):
 
         # The 'function' of the pin. Can be none (missing), dot, clk, or dotclk
         self.function = function
+
+        # With no rotation (0) the pin is horizontal, with the origin on the
+        # left side. With 90 degrees of rotation, the pin is vertical, with the
+        # origin on the bottom.
         self.rotate = rotate
 
     def __repr__(self):
-        return '<%s %r (%s)>' % (self.__class__.__name__,
-                                 self.name,
-                                 self.direction)
+        return ('<%s %r (%s, %s) %f, %f R%d>' %
+                (self.__class__.__name__,
+                 self.name,
+                 self.direction,
+                 self.function,
+                 self.x,
+                 self.y,
+                 self.rotate))
 
     @classmethod
     def from_xml(cls, node):
@@ -401,11 +419,47 @@ class Pin(Primitive):
         raise NotImplementedError
 
     def bounding_box(self):
-        # FIXME Need to render things
-        return ((self.x, self.y),
-                (self.x, self.y))
+        endx, endy = self.calculate_line_endpoint()
+        if self.rotate == 0:
+            startx = self.x - self.pin_origin_radius
+            starty = self.y - self.pin_origin_radius
+            endy += self.pin_origin_radius
+            return (startx, starty), (endx, endy)
+        elif self.rotate == 90:
+            startx = self.x - self.pin_origin_radius
+            starty = self.y - self.pin_origin_radius
+            endx += self.x - self.pin_origin_radius
+            return (startx, starty), (endx, endy)
+        elif self.rotate == 180:
+            startx = self.x + self.pin_origin_radius
+            starty = self.y + self.pin_origin_radius
+            endy -= self.pin_origin_radius
+            return (endx, endy), (startx, starty)
+        elif self.rotate == 270:
+            startx = self.x + self.pin_origin_radius
+            starty = self.y + self.pin_origin_radius
+            endx -= self.pin_origin_radius
+            return (endx, endy), (startx, starty)
+
+    def calculate_line_endpoint(self):
+        grid_scale = 2.54
+        length = {'point': 0,
+                  'short': 1,
+                  'middle': 2,
+                  'long': 3}[self.length] * grid_scale
+        if self.rotate == 0:
+            end = self.x + length, self.y
+        elif self.rotate == 90:
+            end = self.x, self.y + length
+        elif self.rotate == 180:
+            end = self.x - length, self.y
+        elif self.rotate == 270:
+            end = self.x, self.y - length
+        return end
 
     def to_svg_fragments(self, offset, scale, layers):
+        offx, offy = offset
+        elements = []
         # FIXME Implement this
 
         # Pin rendering consists of a couple things:
@@ -414,8 +468,37 @@ class Pin(Primitive):
         #   - text annotations
         #   - the label text?
 
-        return [
-        ]
+        # Components:
+        #   - pin line
+        endx, endy = self.calculate_line_endpoint()
+        color = layers.get_css_color(SYMBOLS_LAYER)
+        if color:
+            style = 'stroke:%s;stroke-width:%d' % (color, 1)
+
+            elements.append(E.line(
+                x1=str((self.x + offx) * scale),
+                y1=str((self.y + offy) * scale),
+                x2=str((endx + offx) * scale),
+                y2=str((endy + offy) * scale),
+                style=style,
+            ))
+
+        #   - pin origin circle
+        color = layers.get_css_color(PINS_LAYER)
+        if color:
+            style = 'stroke:%s;stroke-width:%d;fill:transparent;' % (color, 1)
+            elements.append(E.circle(
+                r=str(self.pin_origin_radius * scale),
+                cx=str((self.x + offx) * scale),
+                cy=str((self.y + offy) * scale),
+                style=style,
+            ))
+        #   - dot function (optional)
+        #   - clk function (optional)
+        #   - name label
+        #   - direction label
+
+        return elements
 
 
 class Polygon(Primitive):
