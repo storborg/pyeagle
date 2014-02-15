@@ -4,6 +4,7 @@ PyEAGLE types: different objects represented in CAD files.
 from collections import OrderedDict
 
 from .geometry import Geometry, Pin, Pad, SMD
+from .layers import LayerSet
 
 
 class Package(Geometry):
@@ -197,20 +198,21 @@ class Library(object):
     """
     def __init__(self, name=None, description=None,
                  packages=None, symbols=None, device_sets=None,
-                 from_file=None):
+                 from_file=None, layers=None):
         self.name = name
         self.description = description
         self.packages = packages or OrderedDict()
         self.symbols = symbols or OrderedDict()
         self.device_sets = device_sets or OrderedDict()
         self.from_file = from_file
+        self.layers = layers
 
     def __repr__(self):
         from_file = self.from_file or 'unknown'
         return '<%s %r>' % (self.__class__.__name__, from_file)
 
     @classmethod
-    def from_xml(cls, lib_root, from_file=None):
+    def from_xml(cls, lib_root, layers, from_file=None):
         """
         Construct a Library from a ``<library>`` node in EAGLE's XML format.
         """
@@ -241,8 +243,23 @@ class Library(object):
             device_sets[device_set.name] = device_set
 
         return cls(name=name,
-                   description=description, packages=packages, symbols=symbols,
-                   device_sets=device_sets, from_file=from_file)
+                   description=description,
+                   packages=packages,
+                   symbols=symbols,
+                   device_sets=device_sets,
+                   from_file=from_file,
+                   layers=layers)
+
+    @classmethod
+    def from_drawing_xml(cls, node, from_file=None):
+        """
+        Construct a Library from a ``<drawing>`` node in EAGLE's XML format.
+        """
+        layer_nodes = node.xpath('layers')
+        layers = LayerSet.from_xml(layer_nodes[0])
+
+        lib_root = node.xpath('library')[0]
+        return cls.from_xml(lib_root, layers=layers, from_file=from_file)
 
     def to_xml(self):
         """
@@ -383,36 +400,41 @@ class Schematic(object):
     """
     Represents an EAGLE schematic.
     """
-    def __init__(self, sheets=None, libraries=None, parts=None):
+    def __init__(self, sheets=None, libraries=None, parts=None, layers=None):
         self.classes = []
         self.libraries = libraries or OrderedDict()
         self.parts = parts or OrderedDict()
         self.sheets = sheets or []
+        self.layers = layers
 
     @classmethod
-    def from_xml(cls, node, from_file=None):
+    def from_drawing_xml(cls, node, from_file=None):
         """
-        Construct a Schematic from a ``<schematic>`` node in EAGLE's XML
-        format.
+        Construct a Schematic from a ``<drawing>`` node in EAGLE's XML format.
         """
+        layer_nodes = node.xpath('layers')
+        layers = LayerSet.from_xml(layer_nodes[0])
+
+        schem_root = node.xpath('schematic')[0]
         libraries = OrderedDict()
-        for lib_node in node.xpath('libraries/library'):
-            lib = Library.from_xml(lib_node)
+        for lib_node in schem_root.xpath('libraries/library'):
+            lib = Library.from_xml(lib_node, layers=layers)
             libraries[lib.name] = lib
 
         parts = OrderedDict()
-        for part_node in node.xpath('parts/part'):
+        for part_node in schem_root.xpath('parts/part'):
             part = Part.from_xml(part_node, libraries)
             parts[part.name] = part
 
         sheets = []
-        for sheet_node in node.xpath('sheets/sheet'):
+        for sheet_node in schem_root.xpath('sheets/sheet'):
             sheets.append(Sheet.from_xml(sheet_node))
 
         return cls(
             libraries=libraries,
             parts=parts,
             sheets=sheets,
+            layers=layers,
         )
 
     def to_xml(self):
@@ -441,6 +463,10 @@ class AutorouterRules(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct an AutorouterRules instance from an EAGLE XML
+        ``<autorouter>`` node.
+        """
         passes = []
         for pass_node in node.xpath('pass'):
             params = {}
@@ -476,6 +502,10 @@ class DesignRules(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a DesignRules instance from an EAGLE XML ``<designrules>``
+        node.
+        """
         name = node.attrib.get('name')
 
         descriptions = {}
@@ -516,9 +546,15 @@ class Bus(Geometry):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Bus from an EAGLE XML ``<bus>`` node.
+        """
         return cls()
 
     def to_xml(self):
+        """
+        Serialize this to a fragment in EAGLE's XML format.
+        """
         raise NotImplementedError
 
 
@@ -533,6 +569,9 @@ class Segment(Geometry):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Segment from an EAGLE XML ``<segment>`` node.
+        """
         primitives = cls.geometry_from_xml(node)
 
         pins = []
@@ -560,6 +599,9 @@ class Net(object):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Net from an EAGLE XML ``<net>`` node.
+        """
         name = node.attrib['name']
         class_ = node.attrib['class']
 
@@ -585,9 +627,15 @@ class Signal(Geometry):
 
     @classmethod
     def from_xml(cls, node):
+        """
+        Construct a Signal from an EAGLE XML ``<signal>`` node.
+        """
         return cls()
 
     def to_xml(self):
+        """
+        Serialize this to a fragment in EAGLE's XML format.
+        """
         raise NotImplementedError
 
 
@@ -596,28 +644,38 @@ class Board(Geometry):
     An EAGLE printed circuit board layout.
     """
     def __init__(self, libraries=None, design_rules=None,
-                 autorouter_rules=None):
+                 autorouter_rules=None, layers=None):
         self.libraries = libraries or OrderedDict()
         self.design_rules = design_rules
         self.autorouter_rules = autorouter_rules
+        self.layers = layers
 
     @classmethod
-    def from_xml(cls, node, from_file=None):
+    def from_drawing_xml(cls, node, from_file=None):
+        """
+        Construct a Board from an EAGLE XML ``<drawing>`` node.
+        """
+        layer_nodes = node.xpath('layers')
+        layers = LayerSet.from_xml(layer_nodes[0])
+
+        board_root = node.xpath('board')[0]
+
         libraries = OrderedDict()
-        for lib_node in node.xpath('libraries/library'):
-            lib = Library.from_xml(lib_node)
+        for lib_node in board_root.xpath('libraries/library'):
+            lib = Library.from_xml(lib_node, layers=layers)
             libraries[lib.name] = lib
 
-        design_rules_node = node.xpath('designrules')[0]
+        design_rules_node = board_root.xpath('designrules')[0]
         design_rules = DesignRules.from_xml(design_rules_node)
 
-        autorouter_rules_node = node.xpath('autorouter')[0]
+        autorouter_rules_node = board_root.xpath('autorouter')[0]
         autorouter_rules = AutorouterRules.from_xml(autorouter_rules_node)
 
         return cls(
             libraries=libraries,
             design_rules=design_rules,
             autorouter_rules=autorouter_rules,
+            layers=layers,
         )
 
     def to_xml(self):

@@ -24,5 +24,6 @@ def open(f):
                      ('board', types.Board)]:
         nodes = root.xpath('drawing/' + tag)
         if len(nodes) == 1:
-            return cls.from_xml(nodes[0], from_file=f)
+            node = root.xpath('drawing')[0]
+            return cls.from_drawing_xml(node, from_file=f)
     raise NotImplementedError

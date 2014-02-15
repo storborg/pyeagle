@@ -3,10 +3,20 @@ import math
 from lxml.etree import tostring
 from lxml.builder import E
 
+# PCB layers
+PADS_LAYER = 17
+VIAS_LAYER = 18
+HOLES_LAYER = 45
+DRILLS_LAYER = 44
+
+# Schematic layers
+SYMBOLS_LAYER = 94
+PINS_LAYER = 93
+
 
 class Primitive(object):
 
-    def to_svg(self, scale):
+    def to_svg(self, scale, layers):
         """
         Render this piece of geometry or set of pieces to an SVG object, and
         return it as a string.
@@ -17,7 +27,7 @@ class Primitive(object):
 
         offset = (-startx, -starty)
 
-        children = self.to_svg_fragments(offset, scale)
+        children = self.to_svg_fragments(offset, scale, layers)
 
         root = E.svg(
             *children,
@@ -66,19 +76,22 @@ class Wire(Primitive):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
                 (max(self.x1, self.x2), max(self.y1, self.y2)))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         offx, offy = offset
 
-        color = 'rgb(80, 80, 80)'
-        style = 'stroke:%s;stroke-width:%d' % (color, self.width * scale)
+        color = layers.get_css_color(self.layer)
+        if color:
+            style = 'stroke:%s;stroke-width:%d' % (color, self.width * scale)
 
-        return [E.line(
-            x1=str((self.x1 + offx) * scale),
-            y1=str((self.y1 + offy) * scale),
-            x2=str((self.x2 + offx) * scale),
-            y2=str((self.y2 + offy) * scale),
-            style=style,
-        )]
+            return [E.line(
+                x1=str((self.x1 + offx) * scale),
+                y1=str((self.y1 + offy) * scale),
+                x2=str((self.x2 + offx) * scale),
+                y2=str((self.y2 + offy) * scale),
+                style=style,
+            )]
+        else:
+            return []
 
 
 class SMD(Primitive):
@@ -115,27 +128,32 @@ class SMD(Primitive):
         return ((self.x - (self.dx / 2.0), self.y - (self.dy / 2.0)),
                 (self.x + (self.dx / 2.0), self.y + (self.dy / 2.0)))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         offsetx, offsety = offset
 
-        color = 'rgb(180, 0, 0)'
-        style = 'fill:%s' % color
+        color = layers.get_css_color(self.layer)
+        if color:
+            style = 'fill:%s' % color
 
-        return [E.rect(
-            x=str((self.x + offsetx - (self.dx / 2.0)) * scale),
-            y=str((self.y + offsety - (self.dy / 2.0)) * scale),
-            width=str(self.dx * scale),
-            height=str(self.dy * scale),
-            style=style,
-        )]
+            return [E.rect(
+                x=str((self.x + offsetx - (self.dx / 2.0)) * scale),
+                y=str((self.y + offsety - (self.dy / 2.0)) * scale),
+                width=str(self.dx * scale),
+                height=str(self.dy * scale),
+                style=style,
+            )]
+        else:
+            return []
 
 
 class Text(Primitive):
     def __init__(self, s, pos, size, layer, ratio=None):
         self.s = s
         self.x, self.y = pos
+        # This is the height of the text.
         self.size = size
         self.layer = layer
+        # This is the 'boldness' of the text.
         self.ratio = ratio
 
     def __repr__(self):
@@ -165,12 +183,34 @@ class Text(Primitive):
 
     def bounding_box(self):
         # FIXME Can we actually calculate this? May need to render text.
+        w, h = self.calculate_size(scale=1)
         return ((self.x, self.y),
-                (self.x, self.y))
+                (self.x + w, self.y + h))
 
-    def to_svg_fragments(self, offset, scale):
-        # FIXME Implement this
-        return []
+    def calculate_size(self, scale):
+        aspect_ratio = 0.49  # Consolas
+        h = self.size * scale
+        w = h * aspect_ratio
+        return w, h
+
+    def to_svg_fragments(self, offset, scale, layers):
+        offsetx, offsety = offset
+
+        color = layers.get_css_color(self.layer)
+        if color:
+            # Initial super naive approach assumes one size and no ratio
+            style = ('fill:%s; font-size:%d; font-family:Consolas;' %
+                     (color, self.size * scale))
+            return [
+                E.text(
+                    self.s,
+                    x=str((self.x + offsetx) * scale),
+                    y=str((self.y + offsety) * scale),
+                    style=style,
+                )
+            ]
+        else:
+            return []
 
 
 class Rectangle(Primitive):
@@ -205,24 +245,28 @@ class Rectangle(Primitive):
         return ((min(self.x1, self.x2), min(self.y1, self.y2)),
                 (max(self.x1, self.x2), max(self.y1, self.y2)))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         offsetx, offsety = offset
 
-        color = 'rgb(180, 0, 0)'
-        style = 'fill:%s' % color
+        color = layers.get_css_color(self.layer)
+        if color:
+            style = 'fill:%s' % color
 
-        x = min(self.x1, self.x2)
-        y = min(self.y1, self.y2)
-        width = abs(self.x2 - self.x1)
-        height = abs(self.y2 - self.y1)
+            x = min(self.x1, self.x2)
+            y = min(self.y1, self.y2)
+            width = abs(self.x2 - self.x1)
+            height = abs(self.y2 - self.y1)
 
-        return [E.rect(
-            x=str((x + offsetx - (width / 2.0)) * scale),
-            y=str((y + offsety - (height / 2.0)) * scale),
-            width=str(width * scale),
-            height=str(height * scale),
-            style=style,
-        )]
+            return [E.rect(
+                x=str((x + offsetx) * scale),
+                y=str((y + offsety) * scale),
+                width=str(width * scale),
+                height=str(height * scale),
+                style=style,
+            )]
+
+        else:
+            return []
 
 
 class Pad(Primitive):
@@ -258,18 +302,54 @@ class Pad(Primitive):
                 (self.x + margin,
                  self.y + margin))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         # FIXME Implement this
+
+        # Initial naive approach is to ignore the pad shape and just assume
+        # it's circular.
+        offsetx, offsety = offset
+
+        color = layers.get_css_color(PADS_LAYER)
+        if color:
+            style = 'fill:%s;;stroke-width:%d' % (color, 0)
+
+            return [E.circle(
+                r=str((self.diameter / 2.0) * scale),
+                cx=str((self.x + offsetx) * scale),
+                cy=str((self.y + offsety) * scale),
+                style=style,
+            )]
+        else:
+            return []
+
         return []
 
 
 class Pin(Primitive):
-    def __init__(self, name, pos, length, direction, rotate, visible=False):
+    def __init__(self, name, pos, length, direction, function, rotate,
+                 visible=False):
         self.name = name
         self.x, self.y = pos
         self.visible = visible
+
+        # The length of the pin, in words: point, short, middle, long
         self.length = length
+
+        # The 'direction' of the pin. Doesn't affect rendering, just electrical
+        # rule check. Possible values are:
+        #   - nc
+        #   - in
+        #   - out
+        #   - io
+        #   - oc
+        #   - pwr
+        #   - pas
+        #   - hiz
+        #   - sup
         self.direction = direction
+
+        # The 'function' of the pin. Can be none (missing), dot, clk, or dotclk
+        self.function = function
         self.rotate = rotate
 
     def __repr__(self):
@@ -286,6 +366,7 @@ class Pin(Primitive):
                         float(node.attrib['y'])),
                    length=node.attrib['length'],
                    direction=node.attrib.get('direction'),
+                   function=node.attrib.get('function'),
                    rotate=rotate,
                    visible=visible)
 
@@ -300,9 +381,17 @@ class Pin(Primitive):
         return ((self.x, self.y),
                 (self.x, self.y))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         # FIXME Implement this
-        return []
+
+        # Pin rendering consists of a couple things:
+        #   - the pin itself
+        #   - the function of the pin
+        #   - text annotations
+        #   - the label text?
+
+        return [
+        ]
 
 
 class Polygon(Primitive):
@@ -338,9 +427,17 @@ class Polygon(Primitive):
                 (max(x for x, y in self.vertices) + margin,
                  max(y for x, y in self.vertices) + margin))
 
-    def to_svg_fragments(self, offset, scale):
-        # FIXME Implement this
-        return []
+    def to_svg_fragments(self, offset, scale, layers):
+        offsetx, offsety = offset
+
+        color = layers.get_css_color(self.layer)
+        if color:
+            # FIXME Handle stroke and fill correctly.
+            style = 'fill:%s;stroke:%s;stroke-width:%d' % (color, color, 1)
+            points = ' '.join('%d,%d' % (x, y) for x, y in self.vertices)
+            return E.polygon(points=points, style=style)
+        else:
+            return []
 
 
 class Hole(Primitive):
@@ -371,17 +468,22 @@ class Hole(Primitive):
                 (self.x + margin,
                  self.y + margin))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         offsetx, offsety = offset
-        color = 'rgb(20, 20, 20)'
-        style = 'fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' % (color, 1)
 
-        return [E.circle(
-            r=str((self.drill / 2.0) * scale),
-            cx=str((self.x + offsetx) * scale),
-            cy=str((self.y + offsety) * scale),
-            style=style,
-        )]
+        color = layers.get_css_color(HOLES_LAYER)
+        if color:
+            style = ('fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' %
+                     (color, 1))
+
+            return [E.circle(
+                r=str((self.drill / 2.0) * scale),
+                cx=str((self.x + offsetx) * scale),
+                cy=str((self.y + offsety) * scale),
+                style=style,
+            )]
+        else:
+            return []
 
 
 class Circle(Primitive):
@@ -415,17 +517,22 @@ class Circle(Primitive):
         return ((self.x - margin, self.y - margin),
                 (self.x + margin, self.y + margin))
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         offsetx, offsety = offset
-        color = 'rgb(20, 20, 20)'
-        style = 'fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' % (color, 1)
 
-        return [E.circle(
-            r=str(self.radius * scale),
-            cx=str((self.x + offsetx) * scale),
-            cy=str((self.y + offsety) * scale),
-            style=style,
-        )]
+        color = layers.get_css_color(self.layer)
+        if color:
+            style = ('fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' %
+                     (color, 1))
+
+            return [E.circle(
+                r=str(self.radius * scale),
+                cx=str((self.x + offsetx) * scale),
+                cy=str((self.y + offsety) * scale),
+                style=style,
+            )]
+        else:
+            return []
 
 
 class Geometry(Primitive):
@@ -457,7 +564,7 @@ class Geometry(Primitive):
             endy = max(endy, y2)
         return (startx, starty), (endx, endy)
 
-    def to_svg_fragments(self, offset, scale):
+    def to_svg_fragments(self, offset, scale, layers):
         """
         Render this set of geometry to a list of SVG nodes.
 
@@ -468,5 +575,5 @@ class Geometry(Primitive):
         """
         children = []
         for primitive in self.primitives:
-            children.extend(primitive.to_svg_fragments(offset, scale))
+            children.extend(primitive.to_svg_fragments(offset, scale, layers))
         return children

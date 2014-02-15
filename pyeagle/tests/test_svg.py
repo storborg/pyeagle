@@ -16,8 +16,8 @@ class TestSVGSmoke(TestCase):
 
     def test_all_packages(self):
         for name, package in self.lib.packages.items():
-            package.to_svg(scale=10)
+            package.to_svg(scale=10, layers=self.lib.layers)
 
     def test_all_symbols(self):
         for name, symbol in self.lib.symbols.items():
-            symbol.to_svg(scale=10)
+            symbol.to_svg(scale=10, layers=self.lib.layers)
