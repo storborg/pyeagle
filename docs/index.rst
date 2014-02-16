@@ -6,6 +6,18 @@ PyEAGLE - Read / Write EAGLE 6 Files
 PyEAGLE is an interchange API to read and write EAGLE 6 schematic, library, and
 PCB layout files.
 
+Some long term goals are:
+
+* Comprehensive and round-trip-capable interface between Pythonic data
+  structures and EAGLE's XML format, eliminating the impedance mismatch
+  involved in manipulating EAGLE files in Python scripts.
+* Traversal and net analysis helpers, to serve as a foundation for higher-level
+  tools.
+* Rendering capability in SVG.
+* Command-line tools, including basic ``grep`` and ``lint`` tools.
+
+At this point it is fairly incomplete and not 'production useful'.
+
 
 Example Usage
 =============
