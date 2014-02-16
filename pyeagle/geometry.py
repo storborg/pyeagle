@@ -459,7 +459,7 @@ class Pin(Primitive):
         return cls(name=node.attrib['name'],
                    pos=(float(node.attrib['x']),
                         float(node.attrib['y'])),
-                   length=node.attrib['length'],
+                   length=node.attrib.get('length', 'middle'),
                    direction=node.attrib.get('direction'),
                    function=node.attrib.get('function'),
                    rotate=rotate,

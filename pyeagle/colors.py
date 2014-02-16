@@ -6,16 +6,16 @@ arbitrary array) and other real-world color spaces.
 # This table can be populated by viewing the 'Color' selection dialog in the
 # EAGLE layers editor. The colors are zero-indexed starting from the top left.
 eagle_to_rgb = [
-    (255, 255, 255),  #  0 white
-    (75, 75, 165),    #  1 dark blue/indigo
-    (75, 165, 75),    #  2 green
-    (75, 165, 165),   #  3 teal
-    (165, 75, 75),    #  4 dark red/burgundy
-    (165, 75, 165),   #  5 magneta/purple
-    (165, 165, 75),   #  6 puke
-    (165, 165, 165),  #  7 medium gray
-    (230, 230, 230),  #  8 light gray
-    (75, 75, 255),    #  9 blue
+    (255, 255, 255),  # 0 white
+    (75, 75, 165),    # 1 dark blue/indigo
+    (75, 165, 75),    # 2 green
+    (75, 165, 165),   # 3 teal
+    (165, 75, 75),    # 4 dark red/burgundy
+    (165, 75, 165),   # 5 magneta/purple
+    (165, 165, 75),   # 6 puke
+    (165, 165, 165),  # 7 medium gray
+    (230, 230, 230),  # 8 light gray
+    (75, 75, 255),    # 9 blue
     (75, 255, 75),    # 10 neon green
     (75, 255, 255),   # 11 cyan/neon blue
     (255, 75, 75),    # 12 bright red
