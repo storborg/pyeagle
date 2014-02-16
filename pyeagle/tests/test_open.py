@@ -52,6 +52,15 @@ class TestOpenSchematic(TestCase):
         libraries = self.schematic.libraries
         self.assertEqual(len(libraries), 18)
 
+    def test_classes(self):
+        classes = self.schematic.classes
+        self.assertEqual(len(classes), 1)
+        cls = classes[0]
+        self.assertEqual(cls.number, 0)
+        self.assertEqual(cls.width, 0.1524)
+        self.assertEqual(cls.name, 'default')
+        self.assertEqual(cls.drill, 0.3048)
+
     def test_sheets(self):
         sheets = self.schematic.sheets
         self.assertEqual(len(sheets), 1)
@@ -60,6 +69,15 @@ class TestOpenSchematic(TestCase):
         sheet = self.schematic.sheets[0]
         nets = sheet.nets
         self.assertEqual(len(nets), 107)
+
+        ground_net = nets['GND']
+        segments = ground_net.segments
+        self.assertEqual(len(segments), 30)
+
+    def test_sheet_instances(self):
+        sheet = self.schematic.sheets[0]
+        instances = sheet.instances
+        self.assertEqual(len(instances), 132)
 
 
 class TestOpenBoard(TestCase):

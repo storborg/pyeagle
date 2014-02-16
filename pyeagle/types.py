@@ -318,19 +318,42 @@ class Instance(object):
     """
     A gate instance of a part in a schematic sheet.
     """
-    def __init__(self, part, gate, pos, smashed=False, rot=0):
+    def __init__(self, part, gate, pos, smashed=False, mirrored=False,
+                 rotate=0):
         self.part = part
         self.gate = gate
         self.x, self.y = pos
         self.smashed = smashed
-        self.rot = rot
+        self.mirrored = mirrored
+        self.rotate = rotate
 
     @classmethod
     def from_xml(cls, node):
         """
         Construct an Instance from a ``<instance>`` node in EAGLE's XML format.
         """
-        pass
+        part = node.attrib['part']
+        gate = node.attrib['gate']
+        x = float(node.attrib['x'])
+        y = float(node.attrib['y'])
+
+        smashed = (node.attrib.get('smashed') == 'yes')
+        rot = node.attrib.get('rot', 'R0')
+        if rot.startswith('M'):
+            mirrored = True
+            rotate = int(rot[2:])
+        else:
+            mirrored = False
+            rotate = int(rot[1:])
+
+        return cls(
+            part=part,
+            gate=gate,
+            pos=(x, y),
+            smashed=smashed,
+            mirrored=mirrored,
+            rotate=rotate,
+        )
 
     def to_xml(self):
         """
@@ -352,25 +375,26 @@ class Sheet(Geometry):
     def __init__(self, primitives=None, instances=None, nets=None,
                  busses=None):
         Geometry.__init__(self, primitives)
-        self.instances = instances or OrderedDict()
-        self.nets = nets or OrderedDict()
-        self.busses = busses or OrderedDict()
+        self.instances = instances or {}
+        self.nets = nets or {}
+        self.busses = busses or {}
 
     @classmethod
     def from_xml(cls, node):
         """
         Construct a Sheet from a ``<sheet>`` node in EAGLE's XML format.
         """
-        instances = OrderedDict()
+        instances = {}
         for instance_node in node.xpath('instances/instance'):
-            pass
+            instance = Instance.from_xml(instance_node)
+            instances[(instance.part, instance.gate)] = instance
 
-        nets = OrderedDict()
+        nets = {}
         for net_node in node.xpath('nets/net'):
             net = Net.from_xml(net_node)
             nets[net.name] = net
 
-        busses = OrderedDict()
+        busses = {}
         for bus_node in node.xpath('busses/bus'):
             bus = Bus.from_xml(bus_node)
             busses[bus.name] = bus
@@ -396,12 +420,44 @@ class Sheet(Geometry):
         raise NotImplementedError
 
 
+class SignalClass(object):
+    """
+    Represents an EAGLE signal class: e.g. one might have classes for
+    "default", "analog", and "power".
+    """
+    def __init__(self, number, name, width, drill, clearance):
+        self.number = number
+        self.name = name
+        self.width = width
+        self.drill = drill
+        self.clearance = clearance
+
+    @classmethod
+    def from_xml(cls, node):
+        number = int(node.attrib['number'])
+        name = node.attrib['name']
+        width = float(node.attrib['width'])
+        drill = float(node.attrib['drill'])
+
+        clearance_node = node.xpath('clearance')[0]
+        clearance = float(clearance_node.attrib['value'])
+
+        return cls(
+            number=number,
+            name=name,
+            width=width,
+            drill=drill,
+            clearance=clearance,
+        )
+
+
 class Schematic(object):
     """
     Represents an EAGLE schematic.
     """
-    def __init__(self, sheets=None, libraries=None, parts=None, layers=None):
-        self.classes = []
+    def __init__(self, classes=None, sheets=None, libraries=None, parts=None,
+                 layers=None):
+        self.classes = classes or {}
         self.libraries = libraries or OrderedDict()
         self.parts = parts or OrderedDict()
         self.sheets = sheets or []
@@ -416,6 +472,12 @@ class Schematic(object):
         layers = LayerSet.from_xml(layer_nodes[0])
 
         schem_root = node.xpath('schematic')[0]
+
+        classes = {}
+        for class_node in schem_root.xpath('classes/class'):
+            signal_class = SignalClass.from_xml(class_node)
+            classes[signal_class.number] = signal_class
+
         libraries = OrderedDict()
         for lib_node in schem_root.xpath('libraries/library'):
             lib = Library.from_xml(lib_node, layers=layers)
@@ -431,6 +493,7 @@ class Schematic(object):
             sheets.append(Sheet.from_xml(sheet_node))
 
         return cls(
+            classes=classes,
             libraries=libraries,
             parts=parts,
             sheets=sheets,
