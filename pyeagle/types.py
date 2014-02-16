@@ -7,6 +7,17 @@ from .geometry import Geometry, Pin, Pad, SMD
 from .layers import LayerSet
 
 
+def settings_from_xml(node):
+    settings = {}
+    for setting_node in node.xpath('setting'):
+        settings.update(node.attrib)
+    return settings
+
+
+def grid_from_xml(node):
+    return node.attrib
+
+
 class Package(Geometry):
     """
     Represents a package (aka footprint) of an EAGLE part.
@@ -198,7 +209,7 @@ class Library(object):
     """
     def __init__(self, name=None, description=None,
                  packages=None, symbols=None, device_sets=None,
-                 from_file=None, layers=None):
+                 from_file=None, layers=None, grid=None, settings=None):
         self.name = name
         self.description = description
         self.packages = packages or OrderedDict()
@@ -206,13 +217,15 @@ class Library(object):
         self.device_sets = device_sets or OrderedDict()
         self.from_file = from_file
         self.layers = layers
+        self.settings = settings
+        self.grid = grid
 
     def __repr__(self):
         from_file = self.from_file or 'unknown'
         return '<%s %r>' % (self.__class__.__name__, from_file)
 
     @classmethod
-    def from_xml(cls, lib_root, layers, from_file=None):
+    def from_xml(cls, lib_root, layers, settings, grid, from_file=None):
         """
         Construct a Library from a ``<library>`` node in EAGLE's XML format.
         """
@@ -248,7 +261,9 @@ class Library(object):
                    symbols=symbols,
                    device_sets=device_sets,
                    from_file=from_file,
-                   layers=layers)
+                   layers=layers,
+                   settings=settings,
+                   grid=grid)
 
     @classmethod
     def from_drawing_xml(cls, node, from_file=None):
@@ -258,8 +273,18 @@ class Library(object):
         layer_nodes = node.xpath('layers')
         layers = LayerSet.from_xml(layer_nodes[0])
 
+        settings_node = node.xpath('settings')[0]
+        settings = settings_from_xml(settings_node)
+
+        grid_node = node.xpath('grid')[0]
+        grid = grid_from_xml(grid_node)
+
         lib_root = node.xpath('library')[0]
-        return cls.from_xml(lib_root, layers=layers, from_file=from_file)
+        return cls.from_xml(lib_root,
+                            layers=layers,
+                            grid=grid,
+                            settings=settings,
+                            from_file=from_file)
 
     def to_xml(self):
         """
@@ -456,12 +481,14 @@ class Schematic(object):
     Represents an EAGLE schematic.
     """
     def __init__(self, classes=None, sheets=None, libraries=None, parts=None,
-                 layers=None):
+                 layers=None, settings=None, grid=None):
         self.classes = classes or {}
         self.libraries = libraries or OrderedDict()
         self.parts = parts or OrderedDict()
         self.sheets = sheets or []
         self.layers = layers
+        self.settings = settings
+        self.grid = grid
 
     @classmethod
     def from_drawing_xml(cls, node, from_file=None):
@@ -470,6 +497,12 @@ class Schematic(object):
         """
         layer_nodes = node.xpath('layers')
         layers = LayerSet.from_xml(layer_nodes[0])
+
+        settings_node = node.xpath('settings')[0]
+        settings = settings_from_xml(settings_node)
+
+        grid_node = node.xpath('grid')[0]
+        grid = grid_from_xml(grid_node)
 
         schem_root = node.xpath('schematic')[0]
 
@@ -480,7 +513,8 @@ class Schematic(object):
 
         libraries = OrderedDict()
         for lib_node in schem_root.xpath('libraries/library'):
-            lib = Library.from_xml(lib_node, layers=layers)
+            lib = Library.from_xml(lib_node, layers=layers, settings=settings,
+                                   grid=grid)
             libraries[lib.name] = lib
 
         parts = OrderedDict()
@@ -498,6 +532,8 @@ class Schematic(object):
             parts=parts,
             sheets=sheets,
             layers=layers,
+            settings=settings,
+            grid=grid,
         )
 
     def to_xml(self):
@@ -707,11 +743,13 @@ class Board(Geometry):
     An EAGLE printed circuit board layout.
     """
     def __init__(self, libraries=None, design_rules=None,
-                 autorouter_rules=None, layers=None):
+                 autorouter_rules=None, layers=None, settings=None, grid=None):
         self.libraries = libraries or OrderedDict()
         self.design_rules = design_rules
         self.autorouter_rules = autorouter_rules
         self.layers = layers
+        self.settings = settings
+        self.grid = grid
 
     @classmethod
     def from_drawing_xml(cls, node, from_file=None):
@@ -721,11 +759,18 @@ class Board(Geometry):
         layer_nodes = node.xpath('layers')
         layers = LayerSet.from_xml(layer_nodes[0])
 
+        settings_node = node.xpath('settings')[0]
+        settings = settings_from_xml(settings_node)
+
+        grid_node = node.xpath('grid')[0]
+        grid = grid_from_xml(grid_node)
+
         board_root = node.xpath('board')[0]
 
         libraries = OrderedDict()
         for lib_node in board_root.xpath('libraries/library'):
-            lib = Library.from_xml(lib_node, layers=layers)
+            lib = Library.from_xml(lib_node, layers=layers, settings=settings,
+                                   grid=grid)
             libraries[lib.name] = lib
 
         design_rules_node = board_root.xpath('designrules')[0]
@@ -739,6 +784,8 @@ class Board(Geometry):
             design_rules=design_rules,
             autorouter_rules=autorouter_rules,
             layers=layers,
+            settings=settings,
+            grid=grid,
         )
 
     def to_xml(self):

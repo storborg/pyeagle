@@ -9,10 +9,25 @@ import pyeagle
 data = pkg_resources.resource_filename('pyeagle.tests', 'data')
 
 
-class TestOpenLibrary(TestCase):
+class DrawingMixin(object):
+
+    def test_settings(self):
+        settings = self.obj.settings
+        self.assertTrue(isinstance(settings, dict))
+
+    def test_grid(self):
+        grid = self.obj.grid
+        self.assertEqual(grid['style'], 'lines')
+
+    def test_layers(self):
+        layers = self.obj.layers
+        layers.is_visible(1)
+
+
+class TestOpenLibrary(TestCase, DrawingMixin):
     @classmethod
     def setUpClass(cls):
-        cls.lib = pyeagle.open(os.path.join(data, 'sample.lbr'))
+        cls.lib = cls.obj = pyeagle.open(os.path.join(data, 'sample.lbr'))
 
     def test_description(self):
         self.assertIn('SparkFun', self.lib.description)
@@ -43,10 +58,11 @@ class TestOpenLibrary(TestCase):
         self.assertEqual(len(package.pads), 2)
 
 
-class TestOpenSchematic(TestCase):
+class TestOpenSchematic(TestCase, DrawingMixin):
     @classmethod
     def setUpClass(cls):
-        cls.schematic = pyeagle.open(os.path.join(data, 'sample.sch'))
+        cls.schematic = cls.obj = \
+            pyeagle.open(os.path.join(data, 'sample.sch'))
 
     def test_libraries(self):
         libraries = self.schematic.libraries
@@ -80,10 +96,10 @@ class TestOpenSchematic(TestCase):
         self.assertEqual(len(instances), 132)
 
 
-class TestOpenBoard(TestCase):
+class TestOpenBoard(TestCase, DrawingMixin):
     @classmethod
     def setUpClass(cls):
-        cls.board = pyeagle.open(os.path.join(data, 'sample.brd'))
+        cls.board = cls.obj = pyeagle.open(os.path.join(data, 'sample.brd'))
 
     def test_libraries(self):
         libraries = self.board.libraries
