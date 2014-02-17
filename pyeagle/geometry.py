@@ -116,6 +116,7 @@ class Wire(Primitive):
         self.width = width
         self.layer = layer
         self.curve = curve
+        # FIXME What is 'cap'?
         self.cap = cap
 
     def __repr__(self):
@@ -162,6 +163,8 @@ class Wire(Primitive):
             style = css_encode({
                 'stroke': color,
                 'stroke-width': self.width * scale,
+                # FIXME Should this use the 'cap' attribute?
+                'stroke-linecap': 'round',
             })
 
             return [E.line(
