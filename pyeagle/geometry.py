@@ -35,6 +35,10 @@ SYMBOLS_LAYER = 94
 PINS_LAYER = 93
 
 
+def css_encode(d):
+    return ';'.join('%s:%s' % (k, v) for k, v in d.items())
+
+
 class Primitive(object):
 
     def to_svg_bounding_box(self, scale, flip, margin):
@@ -43,7 +47,12 @@ class Primitive(object):
         width = math.ceil((endx - startx) * scale)
         height = math.ceil((endy - starty) * scale)
 
-        style = 'stroke-width:1; stroke:red; fill:rgba(255, 0, 0, 0.1);'
+        style = css_encode({
+            'stroke-width': 1,
+            'stroke': 'red',
+            'fill': 'rgba(255, 0, 0, 0.1)',
+        })
+
         return E.rect(
             x=str(margin),
             y=str(margin),
@@ -150,7 +159,10 @@ class Wire(Primitive):
 
         color = layers.get_css_color(self.layer)
         if color:
-            style = 'stroke:%s;stroke-width:%d' % (color, self.width * scale)
+            style = css_encode({
+                'stroke': color,
+                'stroke-width': self.width * scale,
+            })
 
             return [E.line(
                 x1=str(((self.x1 * flipx) + offx) * scale),
@@ -203,7 +215,9 @@ class SMD(Primitive):
 
         color = layers.get_css_color(self.layer)
         if color:
-            style = 'fill:%s' % color
+            style = css_encode({
+                'fill': color,
+            })
 
             return [E.rect(
                 x=str(((self.x * flipx) + offsetx - (self.dx / 2.0)) * scale),
@@ -276,8 +290,11 @@ class Text(Primitive):
         color = layers.get_css_color(self.layer)
         if color:
             # Initial super naive approach assumes one size and no ratio
-            style = ('fill:%s; font-size:%f; font-family:%s;' %
-                     (color, self.size * scale, self.font_family))
+            style = css_encode({
+                'fill': color,
+                'font-size': self.size * scale,
+                'font-family': self.font_family,
+            })
 
             x = self.x * flipx
             y = self.y * flipy
@@ -346,7 +363,9 @@ class Rectangle(Primitive):
 
         color = layers.get_css_color(self.layer)
         if color:
-            style = 'fill:%s' % color
+            style = css_encode({
+                'fill': color,
+            })
 
             x = min(self.x1 * flipx, self.x2 * flipx)
             y = min(self.y1 * flipy, self.y2 * flipy)
@@ -408,7 +427,10 @@ class Pad(Primitive):
 
         color = layers.get_css_color(PADS_LAYER)
         if color:
-            style = 'fill:%s;stroke-width:%d' % (color, 0)
+            style = css_encode({
+                'fill': color,
+                'stroke-width': 0,
+            })
 
             return [E.circle(
                 r=str((self.diameter / 2.0) * scale),
@@ -545,7 +567,10 @@ class Pin(Primitive):
         endx, endy = self.calculate_line_endpoint()
         color = layers.get_css_color(SYMBOLS_LAYER)
         if color:
-            style = 'stroke:%s;stroke-width:%d' % (color, 1)
+            style = css_encode({
+                'stroke': color,
+                'stroke-width': 1,
+            })
 
             elements.append(E.line(
                 x1=str(((self.x * flipx) + offx) * scale),
@@ -558,7 +583,12 @@ class Pin(Primitive):
         #   - pin origin circle
         color = layers.get_css_color(PINS_LAYER)
         if color:
-            style = 'stroke:%s;stroke-width:%d;fill:transparent;' % (color, 1)
+            style = css_encode({
+                'stroke': color,
+                'stroke-width': 1,
+                'fill': 'transparent',
+            })
+
             elements.append(E.circle(
                 r=str(self.pin_origin_radius * scale),
                 cx=str(((self.x * flipx) + offx) * scale),
@@ -613,8 +643,12 @@ class Polygon(Primitive):
         color = layers.get_css_color(self.layer)
         if color:
             # FIXME Handle stroke and fill correctly.
-            style = 'fill:%s;stroke:%s;stroke-width:%d' % (color, color,
-                                                           self.width * scale)
+            style = css_encode({
+                'fill': color,
+                'stroke': color,
+                'stroke-width': self.width * scale,
+            })
+
             points = ' '.join('%d,%d' % (((x * flipx) + offsetx) * scale,
                                          ((y * flipy) + offsety) * scale)
                               for x, y in self.vertices)
@@ -657,8 +691,11 @@ class Hole(Primitive):
 
         color = layers.get_css_color(HOLES_LAYER)
         if color:
-            style = ('fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' %
-                     (color, 1))
+            style = css_encode({
+                'fill': 'rgba(0, 0, 0, 0)',
+                'stroke': color,
+                'stroke-width': 1,
+            })
 
             return [E.circle(
                 r=str((self.drill / 2.0) * scale),
@@ -707,8 +744,11 @@ class Circle(Primitive):
 
         color = layers.get_css_color(self.layer)
         if color:
-            style = ('fill:rgba(0, 0, 0, 0);stroke:%s;stroke-width:%d' %
-                     (color, self.width * scale))
+            style = css_encode({
+                'fill': 'rgba(0, 0, 0, 0)',
+                'stroke': color,
+                'stroke-width': self.width * scale,
+            })
 
             return [E.circle(
                 r=str(self.radius * scale),
