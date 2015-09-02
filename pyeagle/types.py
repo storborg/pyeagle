@@ -706,15 +706,26 @@ class Bus(Geometry):
     """
     A bus in a schematic. Basically a multichannel Net.
     """
-    def __init__(self):
-        pass
+    def __init__(self, name, primitives=None, segments=None):
+        super(Bus, self).__init__(primitives=primitives)
+        self.name = name
+        self.segments = segments
 
     @classmethod
     def from_xml(cls, node):
         """
         Construct a Bus from an EAGLE XML ``<bus>`` node.
         """
-        return cls()
+        primitives = cls.geometry_from_xml(node)
+
+        segments = []
+        for segment_node in node.xpath('.//segment'):
+            segment = Segment.from_xml(segment_node)
+            segments.append(segment)
+
+        return cls(name=node.attrib['name'],
+                   primitives=primitives,
+                   segments=segments)
 
     def to_xml(self):
         """
@@ -771,7 +782,7 @@ class Net(object):
         class_ = node.attrib['class']
 
         segments = []
-        for segment_node in node.xpath('segment'):
+        for segment_node in node.xpath('.//segment'):
             segment = Segment.from_xml(segment_node)
             segments.append(segment)
 
