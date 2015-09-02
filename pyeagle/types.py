@@ -171,18 +171,62 @@ class DeviceSet(object):
         raise NotImplementedError
 
 
+class Attribute(object):
+    def __init__(self, name, value, constant=None):
+        self.name = name
+        self.value = value
+        self.constant = constant
+
+    def __repr__(self):
+        return '<%s %r:%r>' % (self.__class__.__name__,
+                               self.name,
+                               self.value)
+
+    def as_dict(self):
+        return {self.name: self.value}
+
+    @classmethod
+    def from_xml(cls, node):
+        return cls(
+            name = node.attrib['name'],
+            value = node.attrib['value'],
+            constant = node.attrib['constant'] if 'constant' in node.attrib.keys() else None
+        )
+
+
+class Technology(object):
+    def __init__(self, name, attributes):
+        self.name = name
+        self.attributes = attributes
+
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__,
+                            self.attributes)
+
+    def as_dict(self):
+        return { d.name: d.value for d in self.attributes }
+
+    @classmethod
+    def from_xml(cls, node):
+        return cls(
+            name = node.attrib['name'],
+            attributes = [Attribute.from_xml(n) for n in node.xpath('.//attribute')]
+        )
+
+
 class Device(object):
     """
     Represents a device in an EAGLE schematic, PCB, or library.
 
-    FIXME Add pin connections and technologies
+    FIXME Add pin connections
     """
-    def __init__(self, package, name):
+    def __init__(self, package, name, technologies):
         self.name = name
         self.package = package
+        self.technologies = technologies
 
     def __repr__(self):
-        return '<%s %r package:%r>' % (self.__class__.__name__, self.name,
+        return '<%s %r package:%r>' % (self.__class__.__name__, self.name if self.name else '',
                                        self.package.name)
 
     @classmethod
@@ -196,9 +240,13 @@ class Device(object):
         except KeyError:
             package = Package(name='')
 
+        technologies = [Technology.from_xml(n) for n in node.xpath('.//technologies/technology')]
+        technologies = {t.name: t for t in technologies}
+
         return cls(
             name=name,
             package=package,
+            technologies=technologies
         )
 
     def to_xml(self):
@@ -311,10 +359,13 @@ class Part(object):
     """
     A part in a schematic sheet.
     """
-    def __init__(self, name, device, value=None):
+    def __init__(self, name, device, device_set=None, value=None, technology=None, attributes=dict()):
         self.name = name
         self.device = device
+        self.device_set = device_set
         self.value = value
+        self.technology = technology
+        self.attributes = attributes
 
     @classmethod
     def from_xml(cls, node, libraries):
@@ -327,12 +378,22 @@ class Part(object):
         lib_name = node.attrib['library']
         ds_name = node.attrib['deviceset']
         d_name = node.attrib['device']
+        technology_name = node.attrib['technology'] if 'technology' in node.attrib.keys() else ''
 
         lib = libraries[lib_name]
         ds = lib.device_sets[ds_name]
         device = ds.devices[d_name]
 
-        return cls(name=name, device=device, value=value)
+        attributes = OrderedDict()
+        for attribute_node in node.xpath('.//attribute'):
+            attributes[attribute_node.attrib['name']] = attribute_node.attrib['value']
+
+        return cls(name=name,
+                   device=device,
+                   device_set=ds,
+                   value=value,
+                   technology=technology_name,
+                   attributes=attributes)
 
     def to_xml(self):
         """
