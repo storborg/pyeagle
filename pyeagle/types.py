@@ -188,9 +188,9 @@ class Attribute(object):
     @classmethod
     def from_xml(cls, node):
         return cls(
-            name = node.attrib['name'],
-            value = node.attrib['value'],
-            constant = node.attrib['constant'] if 'constant' in node.attrib.keys() else None
+            name=node.attrib['name'],
+            value=node.attrib['value'],
+            constant=node.attrib['constant'] if 'constant' in node.attrib.keys() else None
         )
 
 
@@ -204,13 +204,13 @@ class Technology(object):
                             self.attributes)
 
     def as_dict(self):
-        return { d.name: d.value for d in self.attributes }
+        return {d.name: d.value for d in self.attributes}
 
     @classmethod
     def from_xml(cls, node):
         return cls(
-            name = node.attrib['name'],
-            attributes = [Attribute.from_xml(n) for n in node.xpath('.//attribute')]
+            name=node.attrib['name'],
+            attributes=[Attribute.from_xml(n) for n in node.xpath('.//attribute')]
         )
 
 
