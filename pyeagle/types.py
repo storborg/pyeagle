@@ -136,7 +136,7 @@ class DeviceSet(object):
         return '<%s %r>' % (self.__class__.__name__, self.name)
 
     @classmethod
-    def from_xml(cls, node):
+    def from_xml(cls, node, packages):
         """
         Construct a DeviceSet from a ``<deviceset>`` XML node in EAGLE's XML
         format.
@@ -157,8 +157,8 @@ class DeviceSet(object):
             gates[gate.name] = gate
 
         devices = OrderedDict()
-            device = Device.from_xml(d_node)
         for d_node in node.xpath('.//devices/device'):
+            device = Device.from_xml(d_node, packages)
             devices[device.name] = device
 
         return cls(name=name, prefix=prefix, uservalue=uservalue,
@@ -186,14 +186,19 @@ class Device(object):
                                        self.package.name)
 
     @classmethod
-    def from_xml(cls, node):
+    def from_xml(cls, node, packages):
         """
         Construct a Device from a ``<device>`` node in EAGLE's XML format.
         """
         name = node.attrib['name']
+        try:
+            package = packages[node.attrib['package']]
+        except KeyError:
+            package = Package(name='')
+
         return cls(
             name=name,
-            package=None,
+            package=package,
         )
 
     def to_xml(self):
@@ -248,8 +253,8 @@ class Library(object):
             symbols[symbol.name] = symbol
 
         device_sets = OrderedDict()
-            device_set = DeviceSet.from_xml(ds_node)
         for ds_node in lib_root.xpath('.//devicesets/deviceset'):
+            device_set = DeviceSet.from_xml(ds_node, packages)
             device_sets[device_set.name] = device_set
 
         return cls(name=name,
