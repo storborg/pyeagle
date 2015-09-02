@@ -145,20 +145,20 @@ class DeviceSet(object):
         prefix = node.attrib.get('prefix')
         uservalue = node.attrib.get('uservalue') == 'yes'
 
-        desc_nodes = node.xpath('description')
+        desc_nodes = node.xpath('.//description')
         if desc_nodes:
             description = desc_nodes[0].text
         else:
             description = u''
 
         gates = OrderedDict()
-        for gate_node in node.xpath('gates/gate'):
+        for gate_node in node.xpath('.//gates/gate'):
             gate = Gate.from_xml(gate_node)
             gates[gate.name] = gate
 
         devices = OrderedDict()
-        for d_node in node.xpath('devices/device'):
             device = Device.from_xml(d_node)
+        for d_node in node.xpath('.//devices/device'):
             devices[device.name] = device
 
         return cls(name=name, prefix=prefix, uservalue=uservalue,
@@ -231,28 +231,25 @@ class Library(object):
         """
         name = lib_root.attrib.get('name')
 
-        # FIXME this xpath selector may have an issue, it should really only
-        # select from a description tag which is an immediate child of the root
-        # node.
-        desc_nodes = lib_root.xpath('description')
+        desc_nodes = lib_root.xpath('.//description')
         if desc_nodes:
             description = desc_nodes[0].text
         else:
             description = None
 
         packages = OrderedDict()
-        for package_node in lib_root.xpath('packages/package'):
+        for package_node in lib_root.xpath('.//packages/package'):
             package = Package.from_xml(package_node)
             packages[package.name] = package
 
         symbols = OrderedDict()
-        for symbol_node in lib_root.xpath('symbols/symbol'):
+        for symbol_node in lib_root.xpath('.//symbols/symbol'):
             symbol = Symbol.from_xml(symbol_node)
             symbols[symbol.name] = symbol
 
         device_sets = OrderedDict()
-        for ds_node in lib_root.xpath('devicesets/deviceset'):
             device_set = DeviceSet.from_xml(ds_node)
+        for ds_node in lib_root.xpath('.//devicesets/deviceset'):
             device_sets[device_set.name] = device_set
 
         return cls(name=name,
