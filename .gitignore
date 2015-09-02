@@ -26,3 +26,8 @@ docs/_build/
 
 # Tox working dir.
 .tox/
+
+# buildout stuff
+/bin/
+/var/
+/.installed.cfg
