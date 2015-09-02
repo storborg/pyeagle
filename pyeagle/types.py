@@ -466,8 +466,11 @@ class SignalClass(object):
         width = float(node.attrib['width'])
         drill = float(node.attrib['drill'])
 
-        clearance_node = node.xpath('clearance')[0]
-        clearance = float(clearance_node.attrib['value'])
+        clearance_node = node.xpath('clearance')
+        if len(clearance_node) != 0:
+            clearance = float(clearance_node[0].attrib['value'])
+        else:
+            clearance = None
 
         return cls(
             number=number,
