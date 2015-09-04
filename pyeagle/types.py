@@ -190,7 +190,9 @@ class Attribute(object):
         return cls(
             name=node.attrib['name'],
             value=node.attrib['value'],
-            constant=node.attrib['constant'] if 'constant' in node.attrib.keys() else None
+            constant=(node.attrib['constant']
+                      if 'constant' in node.attrib.keys()
+                      else None)
         )
 
 
@@ -210,7 +212,8 @@ class Technology(object):
     def from_xml(cls, node):
         return cls(
             name=node.attrib['name'],
-            attributes=[Attribute.from_xml(n) for n in node.xpath('.//attribute')]
+            attributes=[Attribute.from_xml(n) for n in
+                        node.xpath('.//attribute')]
         )
 
 
@@ -226,7 +229,8 @@ class Device(object):
         self.technologies = technologies
 
     def __repr__(self):
-        return '<%s %r package:%r>' % (self.__class__.__name__, self.name if self.name else '',
+        return '<%s %r package:%r>' % (self.__class__.__name__,
+                                       self.name if self.name else '',
                                        self.package.name)
 
     @classmethod
@@ -240,7 +244,8 @@ class Device(object):
         except KeyError:
             package = Package(name='')
 
-        technologies = [Technology.from_xml(n) for n in node.xpath('.//technologies/technology')]
+        technologies = [Technology.from_xml(n) for n in
+                        node.xpath('.//technologies/technology')]
         technologies = {t.name: t for t in technologies}
 
         return cls(
@@ -359,7 +364,8 @@ class Part(object):
     """
     A part in a schematic sheet.
     """
-    def __init__(self, name, device, device_set=None, value=None, technology=None, attributes=dict()):
+    def __init__(self, name, device, device_set=None, value=None,
+                 technology=None, attributes=dict()):
         self.name = name
         self.device = device
         self.device_set = device_set
@@ -378,7 +384,8 @@ class Part(object):
         lib_name = node.attrib['library']
         ds_name = node.attrib['deviceset']
         d_name = node.attrib['device']
-        technology_name = node.attrib['technology'] if 'technology' in node.attrib.keys() else ''
+        technology_name = (node.attrib['technology']
+                           if 'technology' in node.attrib.keys() else '')
 
         lib = libraries[lib_name]
         ds = lib.device_sets[ds_name]
@@ -386,7 +393,8 @@ class Part(object):
 
         attributes = OrderedDict()
         for attribute_node in node.xpath('.//attribute'):
-            attributes[attribute_node.attrib['name']] = attribute_node.attrib['value']
+            attributes[attribute_node.attrib['name']] = \
+                attribute_node.attrib['value']
 
         return cls(name=name,
                    device=device,
