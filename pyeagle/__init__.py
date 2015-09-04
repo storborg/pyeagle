@@ -2,7 +2,7 @@ from lxml import etree
 
 from . import types
 
-__version__ = '0.1.1.dev'
+__version__ = '0.1.1'
 
 
 def open(f):
