@@ -7,12 +7,14 @@ Some coordinate system notes...
     - cx, cy for circle determines position of center
     - x, y for rect determines the position of the top left corner
     - x, y for text determines the position of the left corner at the text
+
     baseline (e.g. bottom left corner for all-caps text)
 
 - EAGLE has a coordinate system where 0, 0 is the bottom left
     - rect is defined by bottom-left corner (x1, y1) and top-right corner
-    (x2, y2)
+      (x2, y2)
     - x, y for text determines the left corner at the text baseline
+
 """
 
 

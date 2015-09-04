@@ -136,7 +136,7 @@ class DeviceSet(object):
         return '<%s %r>' % (self.__class__.__name__, self.name)
 
     @classmethod
-    def from_xml(cls, node):
+    def from_xml(cls, node, packages):
         """
         Construct a DeviceSet from a ``<deviceset>`` XML node in EAGLE's XML
         format.
@@ -145,20 +145,20 @@ class DeviceSet(object):
         prefix = node.attrib.get('prefix')
         uservalue = node.attrib.get('uservalue') == 'yes'
 
-        desc_nodes = node.xpath('description')
+        desc_nodes = node.xpath('.//description')
         if desc_nodes:
             description = desc_nodes[0].text
         else:
             description = u''
 
         gates = OrderedDict()
-        for gate_node in node.xpath('gates/gate'):
+        for gate_node in node.xpath('.//gates/gate'):
             gate = Gate.from_xml(gate_node)
             gates[gate.name] = gate
 
         devices = OrderedDict()
-        for d_node in node.xpath('devices/device'):
-            device = Device.from_xml(d_node)
+        for d_node in node.xpath('.//devices/device'):
+            device = Device.from_xml(d_node, packages)
             devices[device.name] = device
 
         return cls(name=name, prefix=prefix, uservalue=uservalue,
@@ -171,29 +171,82 @@ class DeviceSet(object):
         raise NotImplementedError
 
 
+class Attribute(object):
+    def __init__(self, name, value, constant=None):
+        self.name = name
+        self.value = value
+        self.constant = constant
+
+    def __repr__(self):
+        return '<%s %r:%r>' % (self.__class__.__name__,
+                               self.name,
+                               self.value)
+
+    def as_dict(self):
+        return {self.name: self.value}
+
+    @classmethod
+    def from_xml(cls, node):
+        return cls(
+            name=node.attrib['name'],
+            value=node.attrib['value'],
+            constant=node.attrib['constant'] if 'constant' in node.attrib.keys() else None
+        )
+
+
+class Technology(object):
+    def __init__(self, name, attributes):
+        self.name = name
+        self.attributes = attributes
+
+    def __repr__(self):
+        return '<%s %r>' % (self.__class__.__name__,
+                            self.attributes)
+
+    def as_dict(self):
+        return {d.name: d.value for d in self.attributes}
+
+    @classmethod
+    def from_xml(cls, node):
+        return cls(
+            name=node.attrib['name'],
+            attributes=[Attribute.from_xml(n) for n in node.xpath('.//attribute')]
+        )
+
+
 class Device(object):
     """
     Represents a device in an EAGLE schematic, PCB, or library.
 
-    FIXME Add pin connections and technologies
+    FIXME Add pin connections
     """
-    def __init__(self, package, name):
+    def __init__(self, package, name, technologies):
         self.name = name
         self.package = package
+        self.technologies = technologies
 
     def __repr__(self):
-        return '<%s %r package:%r>' % (self.__class__.__name__, self.name,
+        return '<%s %r package:%r>' % (self.__class__.__name__, self.name if self.name else '',
                                        self.package.name)
 
     @classmethod
-    def from_xml(cls, node):
+    def from_xml(cls, node, packages):
         """
         Construct a Device from a ``<device>`` node in EAGLE's XML format.
         """
         name = node.attrib['name']
+        try:
+            package = packages[node.attrib['package']]
+        except KeyError:
+            package = Package(name='')
+
+        technologies = [Technology.from_xml(n) for n in node.xpath('.//technologies/technology')]
+        technologies = {t.name: t for t in technologies}
+
         return cls(
             name=name,
-            package=None,
+            package=package,
+            technologies=technologies
         )
 
     def to_xml(self):
@@ -231,28 +284,25 @@ class Library(object):
         """
         name = lib_root.attrib.get('name')
 
-        # FIXME this xpath selector may have an issue, it should really only
-        # select from a description tag which is an immediate child of the root
-        # node.
-        desc_nodes = lib_root.xpath('description')
+        desc_nodes = lib_root.xpath('.//description')
         if desc_nodes:
             description = desc_nodes[0].text
         else:
             description = None
 
         packages = OrderedDict()
-        for package_node in lib_root.xpath('packages/package'):
+        for package_node in lib_root.xpath('.//packages/package'):
             package = Package.from_xml(package_node)
             packages[package.name] = package
 
         symbols = OrderedDict()
-        for symbol_node in lib_root.xpath('symbols/symbol'):
+        for symbol_node in lib_root.xpath('.//symbols/symbol'):
             symbol = Symbol.from_xml(symbol_node)
             symbols[symbol.name] = symbol
 
         device_sets = OrderedDict()
-        for ds_node in lib_root.xpath('devicesets/deviceset'):
-            device_set = DeviceSet.from_xml(ds_node)
+        for ds_node in lib_root.xpath('.//devicesets/deviceset'):
+            device_set = DeviceSet.from_xml(ds_node, packages)
             device_sets[device_set.name] = device_set
 
         return cls(name=name,
@@ -309,10 +359,13 @@ class Part(object):
     """
     A part in a schematic sheet.
     """
-    def __init__(self, name, device, value=None):
+    def __init__(self, name, device, device_set=None, value=None, technology=None, attributes=dict()):
         self.name = name
         self.device = device
+        self.device_set = device_set
         self.value = value
+        self.technology = technology
+        self.attributes = attributes
 
     @classmethod
     def from_xml(cls, node, libraries):
@@ -325,12 +378,22 @@ class Part(object):
         lib_name = node.attrib['library']
         ds_name = node.attrib['deviceset']
         d_name = node.attrib['device']
+        technology_name = node.attrib['technology'] if 'technology' in node.attrib.keys() else ''
 
         lib = libraries[lib_name]
         ds = lib.device_sets[ds_name]
         device = ds.devices[d_name]
 
-        return cls(name=name, device=device, value=value)
+        attributes = OrderedDict()
+        for attribute_node in node.xpath('.//attribute'):
+            attributes[attribute_node.attrib['name']] = attribute_node.attrib['value']
+
+        return cls(name=name,
+                   device=device,
+                   device_set=ds,
+                   value=value,
+                   technology=technology_name,
+                   attributes=attributes)
 
     def to_xml(self):
         """
@@ -464,8 +527,11 @@ class SignalClass(object):
         width = float(node.attrib['width'])
         drill = float(node.attrib['drill'])
 
-        clearance_node = node.xpath('clearance')[0]
-        clearance = float(clearance_node.attrib['value'])
+        clearance_node = node.xpath('clearance')
+        if len(clearance_node) != 0:
+            clearance = float(clearance_node[0].attrib['value'])
+        else:
+            clearance = None
 
         return cls(
             number=number,
@@ -640,15 +706,26 @@ class Bus(Geometry):
     """
     A bus in a schematic. Basically a multichannel Net.
     """
-    def __init__(self):
-        pass
+    def __init__(self, name, primitives=None, segments=None):
+        super(Bus, self).__init__(primitives=primitives)
+        self.name = name
+        self.segments = segments
 
     @classmethod
     def from_xml(cls, node):
         """
         Construct a Bus from an EAGLE XML ``<bus>`` node.
         """
-        return cls()
+        primitives = cls.geometry_from_xml(node)
+
+        segments = []
+        for segment_node in node.xpath('.//segment'):
+            segment = Segment.from_xml(segment_node)
+            segments.append(segment)
+
+        return cls(name=node.attrib['name'],
+                   primitives=primitives,
+                   segments=segments)
 
     def to_xml(self):
         """
@@ -705,7 +782,7 @@ class Net(object):
         class_ = node.attrib['class']
 
         segments = []
-        for segment_node in node.xpath('segment'):
+        for segment_node in node.xpath('.//segment'):
             segment = Segment.from_xml(segment_node)
             segments.append(segment)
 
