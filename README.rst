@@ -29,8 +29,15 @@ Example Usage
 
 .. code-block:: python
 
+    import pyeagle
+    from pyeagle.render import SVGRenderer
+
     schematic = pyeagle.open('hello.sch')
 
     lib = pyeagle.open('SparkFun-Sensors.lbr')
     for part in lib:
-        print part
+        print(part)
+
+    package = lib.packages['LGA28L']
+
+    SVGRenderer(package, lib.layers).save('lga28l.svg')

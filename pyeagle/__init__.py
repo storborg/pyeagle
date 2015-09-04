@@ -10,8 +10,6 @@ def open(f):
     The main PyEAGLE entry point, to load an EAGLE object from a filename or
     file-like object.
 
-    Only supports .lbr files so far.
-
     :param f:
         Filename or file-like object.
     :returns:
@@ -20,7 +18,8 @@ def open(f):
     tree = etree.parse(f)
     root = tree.getroot()
 
-    # FIXME Add file identification for design rules and autorouter rules.
+    # FIXME Add file identification for design rules, autorouter rules, CAM
+    # jobs, ULPs.
     for tag, cls in [('library', types.Library),
                      ('schematic', types.Schematic),
                      ('board', types.Board)]:

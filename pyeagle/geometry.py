@@ -16,11 +16,6 @@ Some coordinate system notes...
     - x, y for text determines the left corner at the text baseline
 
 """
-
-
-import math
-
-from lxml.etree import tostring
 from lxml.builder import E
 
 # PCB layers
@@ -42,73 +37,7 @@ def css_encode(d):
 
 
 class Primitive(object):
-
-    def to_svg_bounding_box(self, scale, flip, margin):
-        flipx, flipy = flip
-        (startx, starty), (endx, endy) = self.bounding_box()
-        width = math.ceil((endx - startx) * scale)
-        height = math.ceil((endy - starty) * scale)
-
-        style = css_encode({
-            'stroke-width': 1,
-            'stroke': 'red',
-            'fill': 'rgba(255, 0, 0, 0.1)',
-        })
-
-        return E.rect(
-            x=str(margin),
-            y=str(margin),
-            width=str(width),
-            height=str(height),
-            style=style,
-        )
-
-    def to_svg(self, scale, layers, margin=10, flip=(1, -1),
-               add_bounding_box=True):
-        """
-        Render this piece of geometry or set of pieces to an SVG object, and
-        return it as a string.
-        """
-        (startx, starty), (endx, endy) = self.bounding_box()
-
-        native_width = endx - startx
-        native_height = endy - starty
-
-        scaled_width = math.ceil(native_width * scale)
-        scaled_height = math.ceil(native_height * scale)
-
-        offset_margin = float(margin) / scale
-
-        offsetx = (-startx)
-        offsety = (-starty)
-
-        flipx, flipy = flip
-
-        if flipy == 1:
-            offsety = -starty
-        elif flipy == -1:
-            offsety = native_height + starty
-
-        if flipx == 1:
-            offsetx = -startx
-        elif flipx == -1:
-            offsetx = native_width + startx
-
-        offsetx += offset_margin
-        offsety += offset_margin
-
-        offset = offsetx, offsety
-
-        children = self.to_svg_fragments(offset, scale, flip, layers)
-
-        if add_bounding_box:
-            children.insert(0, self.to_svg_bounding_box(scale, flip, margin))
-
-        root = E.svg(
-            *children,
-            width=str(scaled_width + (2 * margin)),
-            height=str(scaled_height + (2 * margin)))
-        return tostring(root)
+    pass
 
 
 class Wire(Primitive):

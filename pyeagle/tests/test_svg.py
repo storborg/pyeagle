@@ -4,6 +4,7 @@ import os.path
 from unittest import TestCase
 
 import pyeagle
+from pyeagle.render import SVGRenderer
 
 
 data = pkg_resources.resource_filename('pyeagle.tests', 'data')
@@ -16,8 +17,8 @@ class TestSVGSmoke(TestCase):
 
     def test_all_packages(self):
         for name, package in self.lib.packages.items():
-            package.to_svg(scale=10, layers=self.lib.layers)
+            SVGRenderer(package, self.lib.layers, scale=10).render_to_string()
 
     def test_all_symbols(self):
         for name, symbol in self.lib.symbols.items():
-            symbol.to_svg(scale=10, layers=self.lib.layers)
+            SVGRenderer(symbol, self.lib.layers, scale=10).render_to_string()
