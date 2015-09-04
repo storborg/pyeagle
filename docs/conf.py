@@ -32,14 +32,14 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'pyeagle'
-copyright = u'2014, Scott Torborg'
+copyright = u'2015, Scott Torborg'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The short X.Y version.
-version = '0.2.1'
+version = '0.1.1.dev'
 # The full version, including alpha/beta/rc tags.
 release = version
 

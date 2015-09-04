@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(name='pyeagle',
-      version='0.0',
+      version='0.1.1.dev',
       description='Read/write EAGLE 6 CAD files',
       long_description=open('README.rst').read(),
       classifiers=[
